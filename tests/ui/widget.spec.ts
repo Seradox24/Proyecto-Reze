@@ -18,6 +18,7 @@ test.beforeEach(async ({page}) => {
     let id = 0;
     const commands: {command:string,args:Record<string,any>}[]=[];
     const state = {revision:1,generation:1,sessions:[{id:'one',name:'Reproductor de prueba'}],selected_session:'one',track:{title:'Canción de prueba con un título muy largo para comprobar el espacio disponible',artist:'Autor de prueba',album:'Demo',duration_ms:120000},playing:true,position_ms:30000,timing_reliable:true,artwork:null,lyrics:{source:'Prueba',source_id:null,format:'line_synced',lines:[{at_ms:0,text:'Una línea anterior'},{at_ms:30000,text:'La música sigue aquí'},{at_ms:60000,text:'Una línea que viene después'}],plain_text:'',warnings:[]},active_line:1,lyrics_status:'ready',candidates:[],error:null,settings:structuredClone(settings)};
+    Object.assign(state,{playback_controls:{play:true,pause:true,previous:true,next:true}});
     const emit = () => { state.revision++; const callback = callbacks.get(listeners.get('proyecto-reze:state')!); callback?.({payload:structuredClone(state)}); };
     Object.assign(window, {__testCommands:commands,__testGetState:()=>structuredClone(state),__testPosition:(tick:unknown)=>callbacks.get(listeners.get('proyecto-reze:position')!)?.({payload:tick}),__testSetState:(patch:Record<string,unknown>)=>{Object.assign(state,patch);emit();},__TAURI_INTERNALS__:{
       transformCallback(callback:(event:unknown)=>void) { callbacks.set(++id, callback); return id; },
@@ -26,6 +27,12 @@ test.beforeEach(async ({page}) => {
         if(command === 'translate_lyrics') { Object.assign(state,{translation:structuredClone(state.lyrics),translation_status:'ready'});(state as any).translation.lines[1].text='La música sigue aquí en español';emit(); }
         if(command === 'plugin:event|listen') {listeners.set(args.event,args.handler);return args.handler;}
         if(command === 'get_state')return structuredClone(state);
+        if(command === 'control_playback') {
+          if((window as any).__testHoldTransport) await new Promise<void>(resolve=>(window as any).__testReleaseTransport=resolve);
+          if(args.action==='pause') state.playing=false;
+          if(args.action==='play') state.playing=true;
+          emit();
+        }
         if(command === 'update_settings') {state.settings=args.settings;emit();}
         if(command === 'select_session') {state.selected_session=args.id;emit();}
       },
@@ -39,6 +46,44 @@ test('renders active line, neighbors, and long metadata without overflow',async(
   await expect(page.locator('#previous')).toHaveText('Una línea anterior');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({path:'artifacts/widget-compact.png'});
+});
+
+test('player controls target the selected session, wait for acknowledgement and follow playback state',async({page})=>{
+  await expect(page.locator('#transport-play-icon')).toBeHidden();
+  await expect(page.locator('#transport-pause-icon')).toBeVisible();
+  await page.evaluate(()=> (window as any).__testHoldTransport=true);
+  await page.getByRole('button',{name:'Pausar',exact:true}).click();
+  await expect(page.locator('#transport')).toHaveAttribute('aria-busy','true');
+  await expect(page.getByRole('button',{name:'Canción siguiente',exact:true})).toBeDisabled();
+  const request=await page.evaluate(()=> (window as any).__testCommands.find((c:any)=>c.command==='control_playback'));
+  expect(request.args).toEqual({sessionId:'one',generation:1,action:'pause'});
+  await page.evaluate(()=>{(window as any).__testHoldTransport=false;(window as any).__testReleaseTransport();});
+  await expect(page.getByRole('button',{name:'Reproducir',exact:true})).toBeEnabled();
+  await expect(page.locator('#transport-play-icon')).toBeVisible();
+  await expect(page.locator('#transport-pause-icon')).toBeHidden();
+  await page.getByRole('button',{name:'Reproducir',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Pausar',exact:true})).toBeEnabled();
+  await page.getByRole('button',{name:'Canción siguiente',exact:true}).click();
+  await expect(page.locator('#transport')).toHaveAttribute('aria-busy','false');
+  const actions=await page.evaluate(()=> (window as any).__testCommands.filter((c:any)=>c.command==='control_playback').map((c:any)=>c.args.action));
+  expect(actions).toEqual(['pause','play','next']);
+});
+
+test('player respects session capabilities and remains recoverable in lyrics-only and small reading views',async({page})=>{
+  await page.evaluate(()=> (window as any).__testSetState({playback_controls:{play:true,pause:true,previous:false,next:false}}));
+  await expect(page.locator('#transport-previous')).toBeDisabled();
+  await expect(page.locator('#transport-next')).toBeDisabled();
+  await page.getByRole('button',{name:'Cambiar a solo letras'}).click();
+  await page.locator('#transport-play-pause').focus();
+  await expect(page.locator('#transport-play-pause')).toBeInViewport();
+  expect(await page.locator('#player').evaluate(el=>getComputedStyle(el).opacity)).toBe('1');
+  await page.getByRole('button',{name:'Cambiar a vista compacta'}).click();
+  await page.setViewportSize({width:300,height:180});
+  await page.evaluate(()=> (window as any).__testSetState({lyrics:{source:'Prueba',source_id:null,format:'plain',lines:[],plain_text:'Letra para leer',warnings:[]}}));
+  await expect(page.locator('#transport-play-pause')).toBeInViewport();
+  expect(await page.locator('#plain-text').evaluate(el=>el.clientHeight)).toBeGreaterThanOrEqual(35);
+  await page.evaluate(()=> (window as any).__testSetState({selected_session:null,track:null}));
+  await expect(page.locator('#transport-play-pause')).toBeDisabled();
 });
 
 test('settings, keyboard recovery, preview and validation',async({page})=>{

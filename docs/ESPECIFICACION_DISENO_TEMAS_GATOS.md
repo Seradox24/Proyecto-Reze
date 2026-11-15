@@ -10,6 +10,8 @@ Fecha: 15 de noviembre de 2026. Documento elaborado con el proceso de planificac
 
 **Ampliación aprobada:** guardar la referencia visual de temas/sprites junto a este documento y añadir una vista Solo letras sin fondo general, con una banda de contraste detrás de la frase. La opción inicial será banda gris oscura y letra blanca; también se podrá elegir banda clara y letra oscura. Esto es una vista, no un quinto tema.
 
+**Ampliación posterior solicitada:** incorporar anterior, reproducir/pausar y siguiente mediante Windows GSMTC. Estos controles ya forman parte de la interfaz implementada y sustituyen la restricción anterior de no añadir botones de transporte. El audio se mantiene en el reproductor externo. Consultar `playback_controls` y el IPC en [architecture.md](architecture.md).
+
 ## Referencias visuales para implementar
 
 | Archivo local junto a este MD | Uso |
@@ -135,7 +137,7 @@ Título 14 px/600; artista 12 px/400. Un título largo tiene elipsis y acceso al
 
 La carátula opcional mide 32 × 32 px. Si falta, retirar su espacio; no sustituirla por un bloque vacío ni por una imagen remota de gato. La mascota de marca sigue en la barra superior.
 
-Mostrar `Reproduciendo` o `En pausa` como texto de apoyo. Su color no es la única diferencia entre estados. No añadir botones de play, pausa o siguiente que el producto no expone actualmente.
+Mostrar `Reproduciendo` o `En pausa` como texto de apoyo. Su color no es la única diferencia entre estados. Los botones de anterior, reproducir/pausar y siguiente envían órdenes a la sesión Windows elegida y solo se habilitan si esa fuente las admite. En Solo letras se revelan con la cabecera mediante hover/foco; no ocupan el área de la frase cuando están ocultos.
 
 ### 4.4 Letra sincronizada
 

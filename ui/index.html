@@ -24,6 +24,11 @@
   <section id="player" aria-label="Reproducción actual">
     <img id="artwork" alt="Carátula de la pista" hidden>
     <div class="track-info"><h1 id="track-title">Tu música, a la vista.</h1><p id="track-artist">Selecciona una sesión para empezar</p></div>
+    <div id="transport" role="group" aria-label="Controles de reproducción" aria-busy="false">
+      <button type="button" id="transport-previous" aria-label="Canción anterior" title="Canción anterior" disabled><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 5v14M18 5 8 12l10 7V5Z"/></svg></button>
+      <button type="button" id="transport-play-pause" aria-label="Reproducir" title="Reproducir" disabled><svg id="transport-play-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m8 4 12 8-12 8V4Z"/></svg><svg id="transport-pause-icon" aria-hidden="true" viewBox="0 0 24 24" hidden><path d="M8 5v14M16 5v14"/></svg></button>
+      <button type="button" id="transport-next" aria-label="Canción siguiente" title="Canción siguiente" disabled><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M18 5v14M6 5l10 7-10 7V5Z"/></svg></button>
+    </div>
     <span id="playback" class="status-pill">Sin sesión</span>
   </section>
   <p id="selection-alert" role="status" hidden></p>

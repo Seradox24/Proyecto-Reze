@@ -217,6 +217,9 @@ h1 {
 }
 .status-pill { font-size: 11px; color: var(--muted); white-space: nowrap; }
 .status-pill.playing { color: var(--accent); }
+#transport { display:flex; align-items:center; gap:2px; flex-shrink:0; }
+#transport button { display:grid; place-items:center; width:28px; height:28px; padding:4px; border-radius:6px; }
+#transport-play-pause { color:var(--accent); }
 
 #lyrics {
   flex: 1;
@@ -513,6 +516,25 @@ output { float: right; color: var(--accent); font-variant-numeric: tabular-nums;
 .lyrics-only #selection-alert {
   display: none;
 }
+.lyrics-only #player {
+  display:flex;
+  position:absolute;
+  top:40px;
+  right:12px;
+  min-height:0;
+  padding:4px;
+  background:var(--surface);
+  border-radius:8px;
+  opacity:0;
+  pointer-events:none;
+  z-index:2;
+}
+.lyrics-only #player .track-info,
+.lyrics-only #player #artwork,
+.lyrics-only #player #playback { display:none; }
+.lyrics-only:hover #player,
+.lyrics-only:focus-within #player,
+.lyrics-only.controls-visible #player { opacity:1; pointer-events:auto; }
 .lyrics-only #titlebar {
   opacity: 0;
   pointer-events: none;
@@ -582,6 +604,7 @@ output { float: right; color: var(--accent); font-variant-numeric: tabular-nums;
 }
 
 @media (max-width: 360px) {
+  #player #playback { display:none; }
   #brand-label { font-size: 0; }
   #brand-label::after { content: 'Reze'; font-size: 12px; }
   #player { padding-inline: 12px; min-height: 32px; }
@@ -599,7 +622,11 @@ output { float: right; color: var(--accent); font-variant-numeric: tabular-nums;
   #player { min-height: 32px; }
 }
 @media (max-height: 240px) {
-  .reading-mode #player { display: none; }
+  .reading-mode #titlebar { height:32px; }
+  .reading-mode #player { min-height:28px; padding-block:0; }
+  .reading-mode #track-artist, .reading-mode #artwork { display:none; }
+  .reading-mode #reading { padding-block:4px; gap:4px; }
+  .reading-mode #reading-status { padding:4px 8px; }
   #next { display: none; }
   #progress-wrap { height: 6px; padding-block: 2px; }
 }

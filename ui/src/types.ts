@@ -1,5 +1,7 @@
 export type ThemeId = 'classic_cat' | 'window_cat' | 'cat_notebook' | 'cat_constellation';
 export type LyricsBackdrop = 'dark' | 'light';
+export type PlaybackAction = 'play' | 'pause' | 'previous' | 'next';
+export interface PlaybackControls {play: boolean; pause: boolean; previous: boolean; next: boolean}
 
 export interface Settings {
   karaoke_mode?: 'line' | 'word';
@@ -14,6 +16,7 @@ export interface Settings {
 export interface Track { title: string; artist: string; album: string; duration_ms: number | null }
 export interface Candidate { id: number; trackName: string; artistName: string; albumName: string; duration: number; syncedLyrics?: string; instrumental?: boolean; matchNote?: string | null }
 export interface Snapshot {
+  playback_controls?: PlaybackControls;
   position_sequence?: number;
   search_override?: Track | null; selected_candidate_id?: number | null; lyrics_revision?: number;
   sync_confirmed?: boolean; selection_notice?: string | null;

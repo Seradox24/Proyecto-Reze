@@ -1,5 +1,6 @@
 //! Explicit diagnostic only. Prints metadata and result summaries, never lyrics.
 #[path = "../src/media.rs"]
+#[allow(dead_code)]
 mod media;
 use proyecto_reze_core::{
     lyrics::{Lrclib, LyricsProvider, automatic_match},

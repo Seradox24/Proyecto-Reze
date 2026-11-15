@@ -11,6 +11,16 @@ un canal acotado y hace un refresco de respaldo cada 1 s visible / 5 s oculto.
 La selección es manual y fija; la desaparición no elige otro reproductor.
 Los objetos de sesión reciben identificadores de ejecución, no se guardan en disco.
 
+El snapshot incluye `playback_controls` (play, pause, previous, next), leído de
+`GetPlaybackInfo().Controls()`. Las órdenes usan la sesión fija elegida, nunca la
+sesión global actual de Windows. El IPC valida ID, generación, pista y capacidad;
+admite una orden pendiente y rechaza solicitudes obsoletas. El worker propietario
+de WinRT inicia `TryPlayAsync`, `TryPauseAsync`, `TrySkipPreviousAsync` o
+`TrySkipNextAsync`; si solo se admite toggle, play/pausa comprueban el estado real
+antes de usarlo. La espera asíncrona tiene límite y no retiene el mutex ni detiene
+el muestreo. Un acuse positivo no se representa como un cambio optimista de
+posición/pista: la interfaz sigue los eventos y muestras reales de Windows.
+
 La posición de GSMTC corresponde a `LastUpdatedTime`, no al instante de lectura.
 Se estima la antigüedad UTC al capturar y luego se usa `Instant` monotónico.
 Muestras repetidas no reinician el reloj. Posición inválida, duración ausente o
@@ -29,6 +39,8 @@ verifica su generación después de cerrar el diálogo nativo.
 
 - `get_state`: snapshot completo versionado y listado de sesiones.
 - `select_session({id})`: selección manual; `null` la libera.
+- `control_playback({sessionId,generation,action})`: acciones `play`, `pause`,
+  `previous` y `next` por Windows GSMTC, según capacidades publicadas por la fuente.
 - `import_lrc`: diálogo nativo restringido a LRC; lectura acotada a 2 MiB + 1.
 - `import_lrc_path({path})`: alternativa visible para una ruta absoluta `.lrc`;
   comparte lector, parser y verificación de generación con el diálogo nativo.

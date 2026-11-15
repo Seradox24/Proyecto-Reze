@@ -1,5 +1,6 @@
 //! Read-only diagnostic: uses the same adapter as Proyecto Reze, never a music service API.
 #[path = "../src/media.rs"]
+#[allow(dead_code)]
 mod media;
 use proyecto_reze_core::model::MediaSource;
 fn main() -> windows::core::Result<()> {

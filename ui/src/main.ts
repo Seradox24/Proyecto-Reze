@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import type { Settings, Snapshot, PositionTick, ThemeId, LyricsBackdrop } from './types';
+import type { Settings, Snapshot, PositionTick, ThemeId, LyricsBackdrop, PlaybackAction } from './types';
 import { DEFAULT_SETTINGS, normalizeLyricsBackdrop, normalizeThemeId } from './types';
 import { lyricView, time, readingStatus, readingText } from './view';
 import { canHighlightWords, modeStatus, WordRenderer } from './karaoke';
@@ -27,6 +27,53 @@ let translationRevision = 0;
 let noticeTimer: ReturnType<typeof setTimeout>;
 let focusReturn: HTMLElement | null = null;
 let previewSettings: Settings | null = null;
+let transportBusy = false;
+
+function renderTransport() {
+  const active = !!state?.selected_session && !!state?.track;
+  const toggleAction = state?.playing ? 'pause' : 'play';
+  const toggleLabel = state?.playing ? 'Pausar' : 'Reproducir';
+  const controls: [string, PlaybackAction, string][] = [
+    ['transport-previous','previous','Canción anterior'],
+    ['transport-play-pause',toggleAction,toggleLabel],
+    ['transport-next','next','Canción siguiente'],
+  ];
+  for (const [id,action,label] of controls) {
+    const button = $<HTMLButtonElement>(id);
+    const supported = active && !!state.playback_controls?.[action];
+    button.disabled = !supported || transportBusy;
+    button.setAttribute('aria-label',label);
+    button.title = !active ? 'Selecciona una sesión con una pista.' : transportBusy
+      ? 'Esperando al reproductor…' : !supported ? `${label}: esta sesión no admite este control.` : label;
+  }
+  $('transport').setAttribute('aria-busy',String(transportBusy));
+  // SVGElement does not reflect HTMLElement.hidden; update the attribute.
+  $('transport-play-icon').toggleAttribute('hidden',!!state?.playing);
+  $('transport-pause-icon').toggleAttribute('hidden',!state?.playing);
+}
+
+async function controlPlayback(action: PlaybackAction) {
+  if (transportBusy || !state.selected_session || !state.track || !state.playback_controls?.[action]) return;
+  const sessionId = state.selected_session;
+  const generation = state.generation;
+  transportBusy = true;
+  renderTransport();
+  try {
+    await command('control_playback',{sessionId,generation,action});
+    // Windows supplies the actual state; do not optimistically move the clock,
+    // change the track, or infer that a request has already taken effect.
+    render(await command<Snapshot>('get_state'));
+  } catch (error) {
+    notice(String(error));
+  } finally {
+    transportBusy = false;
+    renderTransport();
+  }
+}
+
+$('transport-previous').onclick = () => { void controlPlayback('previous'); };
+$('transport-play-pause').onclick = () => { void controlPlayback(state.playing ? 'pause' : 'play'); };
+$('transport-next').onclick = () => { void controlPlayback('next'); };
 
 const THEME_HELP: Record<ThemeId, string> = {
   classic_cat: 'Clásico con gato conserva la identidad habitual sobre verde carbón.',
@@ -174,6 +221,7 @@ function render(next: Snapshot) {
   $('track-title').title = state.track?.title ?? '';
   $('playback').textContent = !state.track ? 'Sin sesión' : state.playing ? 'Reproduciendo' : 'En pausa';
   $('playback').classList.toggle('playing', state.playing);
+  renderTransport();
   $('source-info').textContent = state.lyrics
     ? `Fuente: ${state.lyrics.source}${state.lyrics.source_id !== null ? ` · ID ${state.lyrics.source_id}` : ''}. Derechos de exhibición según la fuente o el archivo aportado.`
     : 'Sin fuente de letras seleccionada.';
@@ -308,6 +356,7 @@ function positionTick(tick: PositionTick) {
   $('elapsed').textContent = time(state.position_ms);
   $('playback').textContent = !state.track ? 'Sin sesión' : state.playing ? 'Reproduciendo' : 'En pausa';
   $('playback').classList.toggle('playing', state.playing);
+  renderTransport();
 }
 
 function populateSettings() {

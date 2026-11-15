@@ -24,13 +24,19 @@ ese campo a `classic_cat`.
 Ventana inicial 420 × 260 (mínimo 300 × 180):
 
 1. Cabecera (36 px): botón del gatito, marca arrastrable, vista / ajustes / ocultar.
-2. Metadatos: título, artista, estado de reproducción.
+2. Metadatos: título, artista, estado y controles anterior / reproducir-pausar / siguiente.
 3. Área central flexible: letra sincronizada o modo lectura.
 4. Progreso informativo (sin seek).
 5. Herramientas: Sesión · Letra · modo efectivo · tiempo.
 
 Tipografía del sistema (`Segoe UI Variable` / `Segoe UI`). Frase activa inicial
 23 px (14–64). Foco visible de 2 px con token `--focus`.
+
+Los controles de reproducción miden 28 × 28 px y siguen las capacidades de la
+sesión GSMTC elegida. Se desactivan mientras se espera respuesta o cuando la
+fuente no admite la orden. El icono de reproducción cambia según el estado real
+de Windows. Solo letras los revela junto a la cabecera con ratón o foco; su fondo
+local garantiza contraste. También permanecen accesibles en lectura a 300 × 180.
 
 ## Menús
 
