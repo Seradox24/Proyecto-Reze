@@ -19,6 +19,7 @@
     <label class="check"><input id="cat-animation" type="checkbox" checked>Animar gatito</label>
     <p id="cat-animation-help" class="help">El gatito se mueve mientras escuchas. Puedes dejarlo quieto cuando quieras.</p>
     <button type="button" id="cat-open-appearance" class="text-button">Cambiar tema…</button>
+    <button type="button" id="cat-open-font-size" class="text-button" aria-haspopup="dialog" aria-controls="font-size-menu">Tamaño de letra…</button>
   </div>
 
   <section id="player" aria-label="Reproducción actual">
@@ -55,12 +56,23 @@
   </footer>
 
   <div id="lyrics-menu" class="popover" hidden role="dialog" aria-label="Menú Letra">
+    <button type="button" id="open-font-size" class="menu-item" aria-haspopup="dialog" aria-controls="font-size-menu">Tamaño de letra…</button>
     <button type="button" id="search" class="menu-item">Buscar letra</button>
     <button type="button" id="import" class="menu-item">Importar archivo de letra…</button>
     <button type="button" id="open-path-import" class="menu-item">Abrir archivo por su ruta…</button>
     <button type="button" id="correct-search" class="menu-item">Corregir búsqueda…</button>
     <button type="button" id="translate" class="menu-item" hidden>Traducir al español…</button>
     <button type="button" id="cancel-translation" class="menu-item" hidden>Cancelar traducción</button>
+  </div>
+
+  <div id="font-size-menu" class="popover" hidden role="dialog" aria-labelledby="quick-font-heading">
+    <p id="quick-font-heading" class="popover-heading">Tamaño de letra</p>
+    <div id="quick-font-controls" class="font-size-controls" role="group" aria-labelledby="quick-font-heading" aria-busy="false">
+      <button type="button" id="font-size-decrease" aria-label="Disminuir tamaño de letra">A−</button>
+      <output id="quick-font-value" aria-live="polite" aria-atomic="true">23 px</output>
+      <button type="button" id="font-size-increase" aria-label="Aumentar tamaño de letra">A+</button>
+    </div>
+    <p class="help">De 14 a 64 px. Se guarda automáticamente.</p>
   </div>
 
   <div id="karaoke-menu" class="popover" hidden role="listbox" aria-label="Preferencia de seguimiento">

@@ -40,10 +40,18 @@ local garantiza contraste. También permanecen accesibles en lectura a 300 × 18
 
 ## Menús
 
-- **Letra**: buscar/versiones, importar, ruta, corregir, traducir/alternar/cancelar.
+- **Letra**: tamaño rápido, buscar/versiones, importar, ruta, corregir, traducir/alternar/cancelar.
 - **Modo**: preferencia por línea/palabra; el badge muestra el modo efectivo
   (Línea / Palabra / Lectura) con explicación de fallback.
 - **Gatito**: casilla `Animar gatito` (guarda inmediato) y acceso a Apariencia.
+
+`Tamaño de letra…` abre un popover compartido desde Letra o Gatito: botones
+**A− / A+**, valor en píxeles y límites 14–64. Cada pulsación modifica 2 px y
+guarda la preferencia existente; no se añade otro campo ni un botón Aplicar.
+Durante el guardado no se acumulan pulsaciones y se conserva el foco de teclado.
+Un error mantiene el tamaño guardado y vuelve a habilitar los controles.
+Escape regresa al disparador visible. Los tamaños grandes pueden desplazar el
+área de letra desde el comienzo, sin centrado que genere un desborde inaccesible.
 
 ## Mascota
 

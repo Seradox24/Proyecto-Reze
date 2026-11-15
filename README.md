@@ -49,6 +49,9 @@ sí solo no inicia Vite: para desarrollo usa `npm run desktop`.
 6. Usa los botones junto al título para anterior, reproducir/pausar y siguiente.
    Windows indica qué controles admite cada sesión; los demás se desactivan.
    En Solo letras, aparecen con los controles al pasar el ratón o usar el teclado.
+7. En **Letra → Tamaño de letra…**, usa **A− / A+** para ajustar de 14 a 64 px
+   en pasos de 2 px. Se guarda automáticamente. El mismo acceso está en el menú
+   del gatito, también en Solo letras; Ajustes conserva la entrada de tamaño exacto.
 
 Cerrar u ocultar conserva el proceso si existe bandeja. Usa su menú para mostrar,
 recuperar la posición, abrir ajustes o salir. Si falla la bandeja, cerrar termina

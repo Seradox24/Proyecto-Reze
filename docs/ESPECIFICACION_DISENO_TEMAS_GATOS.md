@@ -12,6 +12,8 @@ Fecha: 15 de noviembre de 2026. Documento elaborado con el proceso de planificac
 
 **Ampliación posterior solicitada:** incorporar anterior, reproducir/pausar y siguiente mediante Windows GSMTC. Estos controles ya forman parte de la interfaz implementada y sustituyen la restricción anterior de no añadir botones de transporte. El audio se mantiene en el reproductor externo. Consultar `playback_controls` y el IPC en [architecture.md](architecture.md).
 
+**Ajuste rápido posterior:** Letra → `Tamaño de letra…` y el mismo acceso en el menú del gatito abren botones A− / A+ con el valor actual. Modifican el campo existente `font_size` entre 14 y 64 px en pasos de 2, con guardado inmediato y conservación del resto de las preferencias. Ajustes mantiene el campo numérico para tamaños exactos.
+
 ## Referencias visuales para implementar
 
 | Archivo local junto a este MD | Uso |

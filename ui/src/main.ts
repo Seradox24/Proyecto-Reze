@@ -28,6 +28,51 @@ let noticeTimer: ReturnType<typeof setTimeout>;
 let focusReturn: HTMLElement | null = null;
 let previewSettings: Settings | null = null;
 let transportBusy = false;
+let fontSizeBusy = false;
+
+function renderFontSize(settings: Settings) {
+  const value = `${settings.font_size} px`;
+  if ($('quick-font-value').textContent !== value) $('quick-font-value').textContent = value;
+  $('quick-font-controls').setAttribute('aria-busy',String(fontSizeBusy));
+  $<HTMLButtonElement>('font-size-decrease').disabled = fontSizeBusy || settings.font_size <= 14;
+  $<HTMLButtonElement>('font-size-increase').disabled = fontSizeBusy || settings.font_size >= 64;
+}
+
+async function changeFontSize(delta: number) {
+  if (fontSizeBusy) return;
+  const size = Math.max(14,Math.min(64,state.settings.font_size + delta));
+  if (size === state.settings.font_size) return;
+  const previousFocus = document.activeElement;
+  fontSizeBusy = true;
+  renderFontSize(state.settings);
+  try {
+    await persistSettings({...state.settings,font_size:size});
+  } catch (error) {
+    notice(String(error));
+  } finally {
+    fontSizeBusy = false;
+    renderFontSize(state.settings);
+    if (!$('font-size-menu').hidden && document.activeElement === document.body
+      && previousFocus instanceof HTMLButtonElement && previousFocus.closest('#quick-font-controls')) {
+      const target = previousFocus.disabled
+        ? $<HTMLButtonElement>(state.settings.font_size >= 64 ? 'font-size-decrease' : 'font-size-increase')
+        : previousFocus;
+      target.focus();
+    }
+  }
+}
+
+function openFontSize(anchor: HTMLElement) {
+  renderFontSize(state.settings);
+  openPopover('font-size-menu',anchor);
+  // Keep a visible return target: the menu item that opened this is now hidden.
+  $<HTMLButtonElement>(state.settings.font_size >= 64 ? 'font-size-decrease' : 'font-size-increase').focus();
+}
+
+$('open-font-size').onclick = () => openFontSize($('lyrics-menu-button'));
+$('cat-open-font-size').onclick = () => openFontSize($('cat-options'));
+$('font-size-decrease').onclick = () => { void changeFontSize(-2); };
+$('font-size-increase').onclick = () => { void changeFontSize(2); };
 
 function renderTransport() {
   const active = !!state?.selected_session && !!state?.track;
@@ -103,6 +148,7 @@ function effectiveSettings(): Settings {
 }
 
 function applyAppearance(settings: Settings) {
+  renderFontSize(settings);
   const theme = normalizeThemeId(settings.theme_id);
   const backdrop = normalizeLyricsBackdrop(settings.lyrics_backdrop);
   document.documentElement.dataset.theme = theme;
@@ -151,7 +197,7 @@ function closePopover(id: string, returnFocus = true) {
 }
 
 function closeAllPopovers(returnFocus = true) {
-  for (const id of ['lyrics-menu', 'karaoke-menu', 'cat-menu']) closePopover(id, false);
+  for (const id of ['lyrics-menu', 'karaoke-menu', 'cat-menu', 'font-size-menu']) closePopover(id, false);
   if (returnFocus && focusReturn) focusReturn.focus();
 }
 
@@ -622,6 +668,7 @@ $('drag-handle').onpointerdown = event => {
 
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape') {
+    if (!$('font-size-menu').hidden) { closePopover('font-size-menu'); return; }
     if (!$('cat-menu').hidden) { closePopover('cat-menu'); return; }
     if (!$('lyrics-menu').hidden) { closePopover('lyrics-menu'); return; }
     if (!$('karaoke-menu').hidden) { closePopover('karaoke-menu'); return; }
@@ -632,10 +679,10 @@ document.addEventListener('keydown', event => {
 
 document.addEventListener('pointerdown', event => {
   const target = event.target as Node;
-  for (const id of ['cat-menu', 'lyrics-menu', 'karaoke-menu'] as const) {
+  for (const id of ['cat-menu', 'lyrics-menu', 'karaoke-menu', 'font-size-menu'] as const) {
     const pop = $(id);
     if (pop.hidden) continue;
-    const anchors = id === 'cat-menu' ? [$('cat-options')]
+    const anchors = id === 'font-size-menu' ? (focusReturn ? [focusReturn] : []) : id === 'cat-menu' ? [$('cat-options')]
       : id === 'lyrics-menu' ? [$('lyrics-menu-button')]
         : [$('karaoke-badge')];
     if (!pop.contains(target) && !anchors.some(a => a.contains(target))) closePopover(id);

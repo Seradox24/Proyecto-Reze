@@ -33,7 +33,7 @@ test.beforeEach(async ({page}) => {
           if(args.action==='play') state.playing=true;
           emit();
         }
-        if(command === 'update_settings') {state.settings=args.settings;emit();}
+        if(command === 'update_settings') {if((window as any).__testRejectSettings)throw new Error('No se pudo guardar el tamaño.');state.settings=args.settings;emit();}
         if(command === 'select_session') {state.selected_session=args.id;emit();}
       },
     }});
@@ -46,6 +46,55 @@ test('renders active line, neighbors, and long metadata without overflow',async(
   await expect(page.locator('#previous')).toHaveText('Una línea anterior');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({path:'artifacts/widget-compact.png'});
+});
+
+test('font size menu saves immediately, stays in sync with settings and works in lyrics-only',async({page})=>{
+  await openLetra(page);
+  await page.getByRole('button',{name:'Tamaño de letra…',exact:true}).click();
+  await expect(page.getByRole('dialog',{name:'Tamaño de letra',exact:true})).toBeVisible();
+  await expect(page.locator('#quick-font-value')).toHaveText('23 px');
+  await page.getByRole('button',{name:'Aumentar tamaño de letra',exact:true}).click();
+  await expect(page.locator('#current')).toHaveCSS('font-size','25px');
+  await expect(page.locator('#quick-font-value')).toHaveText('25 px');
+  expect(await page.evaluate(()=> (window as any).__testGetState().settings.font_size)).toBe(25);
+  await page.screenshot({path:'artifacts/font-size-menu.png',animations:'disabled'});
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#lyrics-menu-button')).toBeFocused();
+  await page.getByRole('button',{name:'Abrir ajustes'}).click();
+  await expect(page.locator('#font-size')).toHaveValue('25');
+  await page.keyboard.press('Escape');
+  await page.getByRole('button',{name:'Cambiar a solo letras'}).click();
+  await page.setViewportSize({width:300,height:180});
+  await page.getByRole('button',{name:'Opciones del gatito'}).click();
+  await page.getByRole('button',{name:'Tamaño de letra…',exact:true}).click();
+  await page.getByRole('button',{name:'Disminuir tamaño de letra',exact:true}).click();
+  await expect(page.locator('#current')).toHaveCSS('font-size','23px');
+  const box=await page.locator('#font-size-menu').boundingBox();
+  expect(box!.x).toBeGreaterThanOrEqual(0);expect(box!.y).toBeGreaterThanOrEqual(0);
+  expect(box!.x+box!.width).toBeLessThanOrEqual(300);expect(box!.y+box!.height).toBeLessThanOrEqual(180);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#cat-options')).toBeFocused();
+});
+
+test('font size bounds and failed saves preserve the actual saved preference',async({page})=>{
+  await page.evaluate(()=>{const s=(window as any).__testGetState();(window as any).__testSetState({settings:{...s.settings,font_size:64}});});
+  await page.setViewportSize({width:300,height:180});
+  const scroller=await page.locator('#lyrics').boundingBox();
+  const firstLine=await page.locator('#current').boundingBox();
+  expect(firstLine!.y).toBeGreaterThanOrEqual(scroller!.y);
+  await openLetra(page);
+  await page.getByRole('button',{name:'Tamaño de letra…',exact:true}).click();
+  await expect(page.locator('#font-size-increase')).toBeDisabled();
+  await page.locator('#font-size-decrease').click();
+  await expect(page.locator('#current')).toHaveCSS('font-size','62px');
+  await page.evaluate(()=>{const s=(window as any).__testGetState();(window as any).__testSetState({settings:{...s.settings,font_size:14}});(window as any).__testRejectSettings=true;});
+  await expect(page.locator('#font-size-decrease')).toBeDisabled();
+  await page.locator('#font-size-increase').click();
+  await expect(page.locator('#notice')).toContainText('No se pudo guardar el tamaño');
+  await expect(page.locator('#quick-font-value')).toHaveText('14 px');
+  await expect(page.locator('#current')).toHaveCSS('font-size','14px');
+  await expect(page.locator('#font-size-increase')).toBeEnabled();
+  expect(await page.evaluate(()=> (window as any).__testGetState().settings.font_size)).toBe(14);
 });
 
 test('player controls target the selected session, wait for acknowledgement and follow playback state',async({page})=>{
