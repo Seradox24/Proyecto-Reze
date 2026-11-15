@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Proyecto Reze",
+  "version": "0.1.0",
+  "identifier": "app.proyectoreze.widget",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../ui/dist"
+  },
+  "app": {
+    "windows": [{ "label": "main", "title": "Proyecto Reze", "width": 420, "height": 260, "minWidth": 300, "minHeight": 180, "maxWidth": 2000, "maxHeight": 2000, "decorations": false, "transparent": true, "visible": false }],
+    "security": { "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost" }
+  },
+  "bundle": { "active": false }
+}

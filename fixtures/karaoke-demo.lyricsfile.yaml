@@ -1,0 +1,24 @@
+version: '1.0'
+metadata:
+  title: 'Prueba de karaoke propia'
+  artist: 'Proyecto Reze'
+lines:
+  - text: 'Hola mundo'
+    start_ms: 1000
+    end_ms: 3500
+    words:
+      - text: 'Hola '
+        start_ms: 1000
+        end_ms: 2000
+      - text: 'mundo'
+        start_ms: 2000
+        end_ms: 3000
+  - text: 'Seguimos cantando'
+    start_ms: 4000
+    end_ms: 7000
+    words:
+      - text: 'Seguimos '
+        start_ms: 4000
+        end_ms: 5000
+      - text: 'cantando'
+        start_ms: 5000

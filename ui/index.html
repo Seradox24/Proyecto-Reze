@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="dark"><title>Proyecto Reze</title></head>
+<body>
+<main id="widget">
+  <header id="titlebar">
+    <div id="drag-handle" title="Arrastrar ventana"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M7 19V5h5a4 4 0 0 1 0 8H7m5 0 5 6"/></svg><span>Proyecto Reze</span></div>
+    <div class="window-actions">
+      <button id="view-toggle" aria-label="Cambiar a solo letras" title="Cambiar vista"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14M12 5v14M8 19h8"/></svg></button>
+      <button id="open-settings" aria-label="Abrir ajustes" title="Ajustes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M9 4v6M15 14v6"/></svg></button>
+      <button id="hide" aria-label="Ocultar en la bandeja" title="Ocultar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+    </div>
+  </header>
+  <section id="player" aria-label="Reproducción actual">
+    <img id="artwork" alt="Carátula de la pista" hidden>
+    <div class="track-info"><h1 id="track-title">Tu música, a la vista.</h1><p id="track-artist">Selecciona una sesión para empezar</p></div>
+    <span id="playback" class="status-pill">Sin sesión</span>
+    <span id="karaoke-badge" class="status-pill">Línea</span>
+  </section>
+  <p id="selection-alert" role="status" hidden></p>
+  <section id="lyrics" aria-label="Letra de la canción">
+    <p id="previous" class="lyric context"></p>
+    <p id="current" class="lyric current">Abre tu reproductor</p>
+    <p id="next" class="lyric context">Proyecto Reze sigue la reproducción de Windows.</p>
+  </section>
+  <section id="reading" hidden aria-label="Letra sin sincronización"><div id="reading-status" role="status" aria-live="polite" aria-atomic="true"><strong id="reading-label" class="reading-label">Modo lectura · sin tiempos</strong><p id="reading-detail">Esta letra no tiene marcas de tiempo. Se muestra sin seguimiento ni resaltado.</p></div><p id="plain-text" tabindex="0" aria-label="Texto de la letra sin seguimiento"></p></section>
+  <div id="progress-wrap"><progress id="progress" max="1" value="0" aria-label="Progreso de reproducción"></progress></div>
+  <footer id="toolbar">
+    <button id="select-source" class="text-button">Elegir sesión</button>
+    <div class="footer-actions"><button id="import" class="text-button">Importar LRC</button><button id="search" class="text-button">Buscar letra</button><span id="elapsed">0:00</span></div>
+  </footer>
+  <div id="lyric-actions"><button id="correct-search" class="text-button">Corregir búsqueda</button><button id="translate" class="text-button" hidden>Traducir al español</button><button id="cancel-translation" class="text-button" hidden>Cancelar traducción</button></div>
+  <p id="notice" role="status" hidden></p>
+  <section id="settings-panel" class="panel" hidden aria-label="Ajustes">
+    <header class="panel-header"><h2>Ajustes</h2><button id="close-settings" class="text-button">Volver</button></header>
+    <label>Sesión de Windows<select id="sessions"><option value="">Selecciona una sesión</option></select></label>
+    <p class="help">La sesión elegida permanece fija. Si se cierra, vuelve a seleccionarla.</p>
+    <p id="source-info" class="help">Sin fuente de letras seleccionada.</p>
+    <details><summary>Abrir un LRC por su ruta</summary><form id="local-lrc-form"><label>Ruta completa del archivo LRC<input id="local-lrc-path" type="text" placeholder="D:\\Letras\\cancion.lrc" required></label><button class="primary" type="submit">Cargar LRC local</button><p class="help">Alternativa al selector de archivos. No necesita Internet ni correo.</p></form></details>
+    <form id="settings-form">
+      <div class="two-column"><label>Nivel de ventana<select id="z-order"><option value="normal">Normal</option><option value="top">Siempre encima</option><option value="bottom">Siempre debajo</option></select></label><label>Vista<select id="view-mode"><option value="compact">Compacta</option><option value="lyrics_only">Solo letras</option></select></label></div>
+      <label>Desfase <output id="offset-value">0 ms</output><input id="offset" type="range" min="-10000" max="10000" step="100" value="0"></label><p class="help">Un valor positivo adelanta la letra.</p>
+      <label>Modo karaoke<select id="karaoke-mode"><option value="line">Por línea</option><option value="word">Por palabra</option></select></label><p id="karaoke-status" class="help" role="status">Resaltado por línea.</p>
+      <div class="two-column"><label>Tamaño de letra<input id="font-size" type="number" min="14" max="64" value="23" required></label><label>Alineación<select id="alignment"><option value="center">Centrada</option><option value="left">Izquierda</option><option value="right">Derecha</option></select></label></div>
+      <label>Opacidad<input id="opacity" type="range" min="0.2" max="1" step="0.05" value="1"></label>
+      <label class="check"><input id="reduced-motion" type="checkbox">Reducir movimiento</label>
+      <fieldset><legend>Letras</legend><label class="check"><input id="network-allowed" type="checkbox">Buscar letras automáticamente</label><p class="help">Proyecto Reze busca en LRCLIB al cambiar de canción. Envía título, artista, álbum y duración de la sesión elegida. No necesitas cuenta, correo ni URL. Puedes desactivarlo y usar un LRC local.</p></fieldset>
+      <p id="form-error" role="alert" hidden></p>
+      <div class="form-actions"><button id="reset-position" type="button" class="text-button">Recuperar posición</button><button type="submit" class="primary">Guardar ajustes</button></div>
+      <button id="quit" type="button" class="text-button danger">Salir de Proyecto Reze</button>
+    </form>
+  </section>
+  <section id="candidates-panel" class="panel" hidden aria-label="Elegir letra">
+    <header class="panel-header"><h2>Elige la versión</h2><button id="close-candidates" class="text-button">Volver</button></header>
+    <p class="help">Confirma la versión antes de sincronizar. Una diferencia de duración puede indicar una introducción o una grabación distinta.</p><div id="candidates"></div>
+  </section>
+  <section id="correction-panel" class="panel" hidden aria-label="Corregir búsqueda">
+    <header class="panel-header"><h2>Corregir búsqueda</h2><button id="close-correction" class="text-button">Volver</button></header>
+    <p class="help">Corrige los datos que llegan de Windows. Solo se usarán para buscar la letra de esta pista.</p>
+    <form id="correction-form"><label>Título de la canción<input id="search-title" required maxlength="512"></label><label>Artista o intérprete<input id="search-artist" maxlength="512"></label><p class="help">Si no conoces el artista, déjalo vacío. En un cover, prueba primero con quien lo canta.</p><div class="form-actions"><button id="reset-search" type="button" class="text-button">Usar datos de Windows</button><button class="primary" type="submit">Buscar con estos datos</button></div></form>
+  </section>
+  <section id="translation-panel" class="panel" hidden aria-label="Traducción opcional">
+    <header class="panel-header"><h2>Traducir al español</h2><button id="close-translation" class="text-button">Volver</button></header>
+    <p class="help">Solo si lo solicitas, se enviará el texto de esta letra a MyMemory para traducirlo. El servicio gratuito tiene límites de uso. La traducción puede contener errores; se conservan el original y sus tiempos.</p>
+    <label>Idioma original<select id="translation-language"><option value="">Elige el idioma</option><option value="en">Inglés</option><option value="ja">Japonés</option><option value="fr">Francés</option><option value="de">Alemán</option><option value="it">Italiano</option><option value="pt">Portugués</option><option value="ko">Coreano</option><option value="ru">Ruso</option><option value="zh">Chino</option><option value="es">Español (sin traducir)</option></select></label>
+    <p class="help">El idioma detectado es una sugerencia. Corrígelo si no coincide con la letra.</p><button id="confirm-translation" class="primary">Enviar a MyMemory y traducir</button>
+  </section>
+</main><script type="module" src="/src/main.ts"></script>
+</body></html>

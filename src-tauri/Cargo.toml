@@ -1,0 +1,21 @@
+[package]
+name = "proyecto-reze"
+version.workspace = true
+edition.workspace = true
+build = "build.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+proyecto-reze-core = { path = "../crates/proyecto-reze-core" }
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-single-instance = "2"
+rfd = "0.15"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+base64 = "0.22"
+windows = { version = "0.62", features = ["Foundation", "Foundation_Collections", "Media", "Media_Playback", "Media_Control", "Storage_Streams", "Win32_System_WinRT", "Win32_UI_WindowsAndMessaging", "Win32_Foundation"] }
