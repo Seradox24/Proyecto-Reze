@@ -184,7 +184,7 @@ pánicos, estados tipados, Prettier, ESLint y workflow de GitHub Actions.
 Comprobado fuera de Windows: formato y Clippy sin advertencias en todo el
 workspace (el crate de Tauri compilado en cruz para `x86_64-pc-windows-gnu`),
 30 pruebas del crate core, 7 de Vitest y 12 de Playwright con Chromium.
-Las 7 pruebas del crate de Tauri solo se ejecutan en Windows y quedan a cargo
+Las 6 pruebas del crate de Tauri solo se ejecutan en Windows y quedan a cargo
 del workflow. No se repitieron los scripts nativos de `scripts/`, que requieren
 el ejecutable, una sesión GSMTC y WebView2: conviene volver a pasarlos en el
 equipo antes de considerar verificado el comportamiento en tiempo real.
