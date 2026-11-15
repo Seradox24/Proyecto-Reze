@@ -1,0 +1,11 @@
+target/
+node_modules/
+ui/dist/
+artifacts/
+src-tauri/gen/
+src-tauri/icons/
+package-lock.json
+Cargo.lock
+docs/
+*.md
+fixtures/
