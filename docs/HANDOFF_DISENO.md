@@ -7,8 +7,31 @@ Este punto conserva la versión funcional anterior al trabajo de diseño:
 
 - Etiqueta: `respaldo-antes-diseno-2026-11-15`.
 - Rama de respaldo: `respaldo/antes-diseno-2026-11-15`.
-- Código funcional de referencia: `afe9e70`. El commit de este documento solo
-  añade la nota de traspaso; no modifica la aplicación.
+- Código funcional de referencia: `afe9e70`. El commit inicial que añadió esta
+  nota solo documentó el traspaso; el paquete visual posterior tampoco implementa
+  el rediseño de la aplicación.
+
+## Paquete visual listo para el agente implementador
+
+Leer primero [ESPECIFICACION_DISENO_TEMAS_GATOS.md](ESPECIFICACION_DISENO_TEMAS_GATOS.md).
+Junto a ese documento están las referencias aprobadas y propuestas:
+
+- [Temas, sprites y menú del gato](reze-temas-gatitos-sprites.png).
+- [Solo letras con banda oscura/clara y transparencia](reze-solo-letras-contraste.png).
+- Los archivos `.png.json` documentan la procedencia y el prompt de la vista
+  Solo letras. Estas imágenes son mockups, no recursos de sprites ya utilizables.
+
+Implementar los cuatro temas seleccionables, sprites locales con interruptor
+`Animar gatito` en su menú y la vista sin fondo general con respaldo de contraste
+solo detrás de la letra. Los nuevos ajustes propuestos son `theme_id`,
+`cat_animation_enabled` y `lyrics_backdrop`, con valores iniciales compatibles.
+Mantener el comportamiento funcional descrito abajo.
+
+Crear la rama de implementación desde el commit que contiene este paquete
+documental, para conservar la especificación y las imágenes. Utilizar la etiqueta
+de respaldo como referencia del código previo; no sobrescribirla ni moverla.
+Las imágenes generadas ilustran el objetivo; reconstruir la interfaz y producir
+los sprites finales siguiendo las reglas, estados y criterios de aceptación del MD.
 
 ## Estado funcional
 

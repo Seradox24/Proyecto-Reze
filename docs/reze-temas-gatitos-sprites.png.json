@@ -1,0 +1,11 @@
+{
+  "asset": "reze-temas-gatitos-sprites.png",
+  "kind": "approved_concept_reference",
+  "tool": "image_gen.imagegen",
+  "mode": "built_in",
+  "date": "2026-11-15",
+  "origin": "Imagen generada en este chat y aprobada por el usuario; original exec-ac71742b-111c-44f2-a39e-313d1348f7f6.png.",
+  "purpose": "Referencia de cuatro temas, secuencias de sprites ilustrativas y menú Animar gatito.",
+  "production_asset": false,
+  "notes": "No es una hoja de sprites ni una captura de la aplicación implementada. Reutilizada sin editar; el origen documenta su procedencia."
+}
