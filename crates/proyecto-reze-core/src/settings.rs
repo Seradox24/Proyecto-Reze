@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::path::Path;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
@@ -24,6 +24,95 @@ pub enum KaraokeMode {
     Word,
 }
 
+#[derive(Debug, Clone, Default, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ThemeId {
+    #[default]
+    ClassicCat,
+    WindowCat,
+    CatNotebook,
+    CatConstellation,
+}
+
+impl ThemeId {
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "classic_cat" => Some(Self::ClassicCat),
+            "window_cat" => Some(Self::WindowCat),
+            "cat_notebook" => Some(Self::CatNotebook),
+            "cat_constellation" => Some(Self::CatConstellation),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::ClassicCat => "classic_cat",
+            Self::WindowCat => "window_cat",
+            Self::CatNotebook => "cat_notebook",
+            Self::CatConstellation => "cat_constellation",
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for ThemeId {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+        Ok(match value.as_ref().and_then(|v| v.as_str()) {
+            Some(raw) => ThemeId::parse(raw).unwrap_or_default(),
+            _ => ThemeId::default(),
+        })
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum LyricsBackdrop {
+    #[default]
+    Dark,
+    Light,
+}
+
+impl LyricsBackdrop {
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "dark" => Some(Self::Dark),
+            "light" => Some(Self::Light),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Dark => "dark",
+            Self::Light => "light",
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for LyricsBackdrop {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+        Ok(match value.as_ref().and_then(|v| v.as_str()) {
+            Some(raw) => LyricsBackdrop::parse(raw).unwrap_or_default(),
+            _ => LyricsBackdrop::default(),
+        })
+    }
+}
+
+fn default_cat_animation() -> bool {
+    true
+}
+
+fn deserialize_cat_animation<'de, D: Deserializer<'de>>(deserializer: D) -> Result<bool, D::Error> {
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+    Ok(match value {
+        Some(serde_json::Value::Bool(flag)) => flag,
+        Some(serde_json::Value::Null) | None => true,
+        _ => true,
+    })
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct Settings {
@@ -37,6 +126,13 @@ pub struct Settings {
     pub reduced_motion: bool,
     pub z_order: ZOrder,
     pub view_mode: ViewMode,
+    pub theme_id: ThemeId,
+    #[serde(
+        default = "default_cat_animation",
+        deserialize_with = "deserialize_cat_animation"
+    )]
+    pub cat_animation_enabled: bool,
+    pub lyrics_backdrop: LyricsBackdrop,
     pub x: Option<i32>,
     pub y: Option<i32>,
     pub width: f64,
@@ -55,6 +151,9 @@ impl Default for Settings {
             reduced_motion: false,
             z_order: ZOrder::Normal,
             view_mode: ViewMode::Compact,
+            theme_id: ThemeId::ClassicCat,
+            cat_animation_enabled: true,
+            lyrics_backdrop: LyricsBackdrop::Dark,
             x: None,
             y: None,
             width: 420.0,
@@ -215,5 +314,60 @@ mod tests {
         let restored: Settings =
             serde_json::from_str(&serde_json::to_string(&settings).unwrap()).unwrap();
         assert_eq!(restored.karaoke_mode, KaraokeMode::Word);
+    }
+
+    #[test]
+    fn missing_theme_fields_receive_defaults_without_losing_others() {
+        let settings: Settings = serde_json::from_str(
+            r#"{"network_allowed":false,"offset_ms":250,"font_size":28,"karaoke_mode":"word"}"#,
+        )
+        .unwrap();
+        assert_eq!(settings.theme_id, ThemeId::ClassicCat);
+        assert!(settings.cat_animation_enabled);
+        assert_eq!(settings.lyrics_backdrop, LyricsBackdrop::Dark);
+        assert!(!settings.network_allowed);
+        assert_eq!(settings.offset_ms, 250);
+        assert_eq!(settings.font_size, 28);
+        assert_eq!(settings.karaoke_mode, KaraokeMode::Word);
+    }
+
+    #[test]
+    fn unknown_theme_or_backdrop_recovers_only_that_preference() {
+        let settings: Settings = serde_json::from_str(
+            r#"{
+                "offset_ms": 700,
+                "theme_id": "neon_dog",
+                "lyrics_backdrop": "neon",
+                "cat_animation_enabled": "maybe",
+                "network_allowed": false,
+                "view_mode": "lyrics_only"
+            }"#,
+        )
+        .unwrap();
+        assert_eq!(settings.theme_id, ThemeId::ClassicCat);
+        assert_eq!(settings.lyrics_backdrop, LyricsBackdrop::Dark);
+        assert!(settings.cat_animation_enabled);
+        assert_eq!(settings.offset_ms, 700);
+        assert!(!settings.network_allowed);
+        assert_eq!(settings.view_mode, ViewMode::LyricsOnly);
+    }
+
+    #[test]
+    fn theme_preferences_roundtrip() {
+        let settings = Settings {
+            theme_id: ThemeId::CatConstellation,
+            cat_animation_enabled: false,
+            lyrics_backdrop: LyricsBackdrop::Light,
+            offset_ms: 100,
+            ..Default::default()
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        save(&path, &settings).unwrap();
+        assert_eq!(load(&path).0, settings);
+        let encoded = serde_json::to_string(&settings).unwrap();
+        assert!(encoded.contains("\"theme_id\":\"cat_constellation\""));
+        assert!(encoded.contains("\"lyrics_backdrop\":\"light\""));
+        assert!(encoded.contains("\"cat_animation_enabled\":false"));
     }
 }
