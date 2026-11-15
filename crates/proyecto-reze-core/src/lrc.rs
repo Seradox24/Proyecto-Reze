@@ -105,9 +105,23 @@ pub fn active_line(lines: &[LyricLine], position_ms: i64) -> Option<usize> {
         .checked_sub(1)
 }
 
+/// Start of the first line after `position_ms`, used to sleep exactly until it becomes active.
+pub fn next_line_at(lines: &[LyricLine], position_ms: i64) -> Option<i64> {
+    lines
+        .get(lines.partition_point(|line| line.at_ms <= position_ms))
+        .map(|line| line.at_ms)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn next_line_at_finds_the_following_start_and_ends_after_the_last_line() {
+        let doc = parse(b"[00:01.00]a\n[00:01.00]b\n[00:03.00]c", "test").unwrap();
+        assert_eq!(next_line_at(&doc.lines, -5), Some(1000));
+        assert_eq!(next_line_at(&doc.lines, 1000), Some(3000));
+        assert_eq!(next_line_at(&doc.lines, 3000), None);
+    }
     #[test]
     fn parses_bom_repeated_tags_offsets_and_stable_duplicates() {
         let doc = parse("\u{feff}[ar:Propio]\n[offset:100]\n[00:02.5][00:01.00]Hola\n[00:01.000]Otra\n[00:90.00]Inválida".as_bytes(), "test").unwrap();

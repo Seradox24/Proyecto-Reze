@@ -1,6 +1,6 @@
 use base64::Engine;
 use proyecto_reze_core::model::{MediaSample, MediaSource, Session, Timeline, Track};
-use std::sync::mpsc::SyncSender;
+use std::sync::{Arc, mpsc::SyncSender};
 use windows::{Foundation::TypedEventHandler, Media::Control::*, Storage::Streams::DataReader};
 
 pub struct Gsmtc {
@@ -12,7 +12,7 @@ pub struct Gsmtc {
     wake: SyncSender<()>,
     next_id: u64,
     last_track: Option<Track>,
-    artwork: Option<String>,
+    artwork: Option<Arc<str>>,
 }
 impl Gsmtc {
     pub fn new(wake: SyncSender<()>) -> windows::core::Result<Self> {
@@ -205,10 +205,10 @@ impl Gsmtc {
                     let count = reader.LoadAsync(size as u32).ok()?.join().ok()?;
                     let mut bytes = vec![0; count as usize];
                     reader.ReadBytes(&mut bytes).ok()?;
-                    Some(format!(
+                    Some(Arc::from(format!(
                         "data:{mime};base64,{}",
                         base64::engine::general_purpose::STANDARD.encode(bytes)
-                    ))
+                    )))
                 });
             self.last_track = Some(track.clone());
         }

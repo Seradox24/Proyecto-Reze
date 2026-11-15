@@ -63,6 +63,29 @@ impl PlaybackClock {
     pub fn reliable(&self) -> bool {
         self.sample.reliable
     }
+    /// True while the estimated position moves on its own.
+    pub fn advancing(&self) -> bool {
+        self.sample.playing && self.sample.reliable && self.sample.rate > 0.0
+    }
+    /// How long the caller may sleep before the position crosses `target_ms`.
+    /// `None` when the position is not advancing or the target is already behind.
+    pub fn wait_until(&self, target_ms: u64, now: Instant) -> Option<std::time::Duration> {
+        if !self.advancing() {
+            return None;
+        }
+        let position = self.position(now);
+        if self
+            .sample
+            .duration_ms
+            .is_some_and(|duration| position >= duration)
+        {
+            return None;
+        }
+        let remaining = target_ms.checked_sub(position)?;
+        Some(std::time::Duration::from_nanos(
+            (remaining as f64 * 1_000_000.0 / self.sample.rate).round() as u64,
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -121,6 +144,33 @@ mod tests {
         t.position_ms = 2000;
         clock.update(t, now + Duration::from_secs(1));
         assert_eq!(clock.position(now + Duration::from_secs(8)), 2000);
+    }
+    #[test]
+    fn wait_until_scales_with_rate_and_stops_when_not_advancing() {
+        let now = Instant::now();
+        let mut clock = PlaybackClock::default();
+        let mut t = Timeline {
+            position_ms: 1000,
+            duration_ms: Some(10_000),
+            playing: true,
+            rate: 2.0,
+            reliable: true,
+            source_updated: 1,
+            ..Default::default()
+        };
+        clock.update(t.clone(), now);
+        assert_eq!(clock.wait_until(3000, now), Some(Duration::from_secs(1)));
+        assert_eq!(clock.wait_until(500, now), None);
+        // At the end of the track the position no longer moves.
+        assert_eq!(
+            clock.wait_until(20_000, now + Duration::from_secs(60)),
+            None
+        );
+        t.playing = false;
+        t.source_updated = 2;
+        clock.update(t, now);
+        assert!(!clock.advancing());
+        assert_eq!(clock.wait_until(3000, now), None);
     }
     #[test]
     fn seek_rate_duration_and_unreliable() {

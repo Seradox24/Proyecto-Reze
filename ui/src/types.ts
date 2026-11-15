@@ -5,7 +5,7 @@ export interface Settings {
   offset_ms: number;
   font_size: number;
   opacity: number;
-  alignment: string;
+  alignment: 'left' | 'center' | 'right';
   reduced_motion: boolean;
   z_order: 'top' | 'normal' | 'bottom';
   view_mode: 'compact' | 'lyrics_only';
@@ -26,10 +26,12 @@ export interface Candidate {
   artistName: string;
   albumName: string;
   duration: number;
-  syncedLyrics?: string;
   instrumental?: boolean;
   matchNote?: string | null;
 }
+export type LyricsStatus = 'missing' | 'loading' | 'ready' | 'error';
+export type TranslationStatus = 'idle' | 'loading' | 'ready' | 'error';
+/** Everything except the artwork bytes and the lyrics of each alternative. */
 export interface Snapshot {
   position_sequence?: number;
   search_override?: Track | null;
@@ -38,7 +40,7 @@ export interface Snapshot {
   sync_confirmed?: boolean;
   selection_notice?: string | null;
   translation?: Snapshot['lyrics'];
-  translation_status?: string;
+  translation_status?: TranslationStatus;
   language?: string | null;
   revision: number;
   generation: number;
@@ -48,7 +50,9 @@ export interface Snapshot {
   playing: boolean;
   position_ms: number;
   timing_reliable: boolean;
-  artwork: string | null;
+  /** Changes whenever the artwork does; the image is fetched with `get_artwork`. */
+  artwork_revision?: number;
+  has_artwork?: boolean;
   lyrics: {
     source: string;
     source_id: number | null;
@@ -58,7 +62,7 @@ export interface Snapshot {
     warnings: string[];
   } | null;
   active_line: number | null;
-  lyrics_status: string;
+  lyrics_status: LyricsStatus;
   candidates: Candidate[];
   error: string | null;
   settings: Settings;

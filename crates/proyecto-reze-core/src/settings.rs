@@ -17,6 +17,15 @@ pub enum ViewMode {
     LyricsOnly,
 }
 
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Alignment {
+    Left,
+    #[default]
+    Center,
+    Right,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum KaraokeMode {
@@ -33,7 +42,7 @@ pub struct Settings {
     pub offset_ms: i64,
     pub font_size: u32,
     pub opacity: f64,
-    pub alignment: String,
+    pub alignment: Alignment,
     pub reduced_motion: bool,
     pub z_order: ZOrder,
     pub view_mode: ViewMode,
@@ -51,7 +60,7 @@ impl Default for Settings {
             offset_ms: 0,
             font_size: 23,
             opacity: 1.0,
-            alignment: "center".into(),
+            alignment: Alignment::Center,
             reduced_motion: false,
             z_order: ZOrder::Normal,
             view_mode: ViewMode::Compact,
@@ -71,7 +80,6 @@ impl Settings {
             || !(14..=64).contains(&self.font_size)
             || !self.opacity.is_finite()
             || !(0.2..=1.0).contains(&self.opacity)
-            || !["left", "center", "right"].contains(&self.alignment.as_str())
             || !self.width.is_finite()
             || !self.height.is_finite()
             || !(300.0..=2000.0).contains(&self.width)

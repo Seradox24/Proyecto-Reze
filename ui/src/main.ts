@@ -21,6 +21,7 @@ let displayedRevision = -1;
 let correctionGeneration = 0;
 let translationGeneration = 0;
 let translationRevision = 0;
+let artworkRevision = 0;
 let noticeTimer: ReturnType<typeof setTimeout>;
 function notice(message: string) {
   $('notice').textContent = message;
@@ -108,9 +109,7 @@ function render(next: Snapshot) {
   $('source-info').textContent = state.lyrics
     ? `Fuente: ${state.lyrics.source}${state.lyrics.source_id !== null ? ` · ID ${state.lyrics.source_id}` : ''}. Derechos de exhibición según la fuente o el archivo aportado.`
     : 'Sin fuente de letras seleccionada.';
-  const art = $<HTMLImageElement>('artwork');
-  art.hidden = !state.artwork;
-  if (state.artwork && art.getAttribute('src') !== state.artwork) art.src = state.artwork;
+  renderArtwork();
   const reading = readingStatus(state, lyrics);
   $('reading').hidden = !reading;
   $('lyrics').hidden = !!reading;
@@ -124,11 +123,7 @@ function render(next: Snapshot) {
     if ($('plain-text').textContent !== text) $('plain-text').textContent = text;
   }
   renderTimedLyrics(lyrics);
-  $('elapsed').textContent = time(state.position_ms);
-  const progress = $<HTMLProgressElement>('progress');
-  progress.max = state.track?.duration_ms || 1;
-  progress.value = state.position_ms;
-  $('progress-wrap').hidden = !state.track?.duration_ms;
+  renderProgress();
   const signature = JSON.stringify(state.sessions);
   if (signature !== sessionSignature) {
     const placeholder = new Option('Selecciona una sesión', '');
@@ -197,6 +192,34 @@ function render(next: Snapshot) {
   documentSignature = docSignature;
   if ($('settings-panel').hidden) applyAppearance(state.settings);
 }
+/** The image is not part of the snapshot: fetch it once per revision. */
+function renderArtwork() {
+  const revision = state.artwork_revision ?? 0;
+  if (revision === artworkRevision) return;
+  artworkRevision = revision;
+  const art = $<HTMLImageElement>('artwork');
+  art.hidden = true;
+  if (!state.has_artwork) {
+    art.removeAttribute('src');
+    return;
+  }
+  void command<string | null>('get_artwork', { revision })
+    .then((data) => {
+      // A newer track may have arrived while this image was in transit.
+      if (!data || artworkRevision !== revision) return;
+      art.src = data;
+      art.hidden = false;
+    })
+    .catch(() => {});
+}
+function renderProgress() {
+  const elapsed = time(state.position_ms);
+  if ($('elapsed').textContent !== elapsed) $('elapsed').textContent = elapsed;
+  const progress = $<HTMLProgressElement>('progress');
+  progress.max = state.track?.duration_ms || 1;
+  progress.value = state.position_ms;
+  $('progress-wrap').hidden = !state.track?.duration_ms;
+}
 function renderTimedLyrics(lyrics: Snapshot['lyrics']) {
   const view = lyricView({ ...state, lyrics });
   for (const key of ['previous', 'next'] as const)
@@ -245,6 +268,7 @@ function positionTick(tick: PositionTick) {
     timing_reliable: tick.timing_reliable,
   };
   renderTimedLyrics(translated && state.translation ? state.translation : state.lyrics);
+  renderProgress();
 }
 function populateSettings() {
   const s = state.settings;
@@ -269,7 +293,7 @@ function settingsFromForm(): Settings {
     offset_ms: Number(input('offset').value),
     font_size: Number(input('font-size').value),
     opacity: Number(input('opacity').value),
-    alignment: select('alignment').value,
+    alignment: select('alignment').value as Settings['alignment'],
     reduced_motion: input('reduced-motion').checked,
     network_allowed: input('network-allowed').checked,
   };
@@ -484,7 +508,6 @@ async function start() {
       playing: false,
       position_ms: 0,
       timing_reliable: false,
-      artwork: null,
       lyrics: null,
       active_line: null,
       lyrics_status: 'missing',

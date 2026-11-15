@@ -20,7 +20,8 @@ test.beforeEach(async ({ page }) => {
       playing: true,
       position_ms: 30000,
       timing_reliable: true,
-      artwork: null,
+      artwork_revision: 0,
+      has_artwork: false,
       lyrics: {
         source: 'Prueba',
         source_id: null,
@@ -87,6 +88,8 @@ test.beforeEach(async ({ page }) => {
             return args.handler;
           }
           if (command === 'get_state') return structuredClone(state);
+          if (command === 'get_artwork')
+            return args.revision === 1 ? 'data:image/png;base64,iVBORw0KGgo=' : null;
           if (command === 'update_settings') {
             state.settings = args.settings;
             emit();
@@ -137,7 +140,7 @@ test('uncertain cover result shows artist and duration warning before selection'
   await page.evaluate(() =>
     (window as any).__testSetState({
       lyrics: null,
-      lyrics_status: 'candidates',
+      lyrics_status: 'missing',
       candidates: [
         {
           id: 12756272,
@@ -349,4 +352,43 @@ test('untimed lyrics have a prominent persistent notice and neutral text', async
   await page.setViewportSize({ width: 300, height: 180 });
   await expect(page.locator('#reading-label')).toBeInViewport();
   await page.screenshot({ path: 'artifacts/reading-no-timing-small.png', omitBackground: true });
+});
+test('position ticks move the clock and lines without a full snapshot', async ({ page }) => {
+  await expect(page.locator('#elapsed')).toHaveText('0:30');
+  await page.evaluate(() =>
+    (window as any).__testPosition({
+      generation: 1,
+      lyrics_revision: undefined,
+      sequence: 5,
+      position_ms: 61000,
+      active_line: 2,
+      playing: true,
+      timing_reliable: true,
+    }),
+  );
+  await expect(page.locator('#elapsed')).toHaveText('1:01');
+  await expect(page.locator('#current')).toHaveText('Una línea que viene después');
+  expect(await page.locator('#progress').evaluate((p: HTMLProgressElement) => p.value)).toBe(61000);
+});
+test('artwork is requested once per revision and hidden when the track has none', async ({
+  page,
+}) => {
+  const requests = () =>
+    page.evaluate(
+      () => (window as any).__testCommands.filter((c: any) => c.command === 'get_artwork').length,
+    );
+  await expect(page.locator('#artwork')).toBeHidden();
+  expect(await requests()).toBe(0);
+  await page.evaluate(() =>
+    (window as any).__testSetState({ artwork_revision: 1, has_artwork: true }),
+  );
+  await expect(page.locator('#artwork')).toBeVisible();
+  await page.evaluate(() => (window as any).__testSetState({ playing: false }));
+  await expect(page.locator('#playback')).toHaveText('En pausa');
+  expect(await requests()).toBe(1);
+  await page.evaluate(() =>
+    (window as any).__testSetState({ artwork_revision: 2, has_artwork: false }),
+  );
+  await expect(page.locator('#artwork')).toBeHidden();
+  expect(await requests()).toBe(1);
 });

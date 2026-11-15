@@ -64,7 +64,7 @@ export function lyricView(state: Snapshot): { previous: string; current: string;
       next: lines[index + 1]?.text ?? '',
     };
   }
-  const messages: Record<string, [string, string]> = {
+  const messages: Record<Snapshot['lyrics_status'] | 'candidates', [string, string]> = {
     loading: ['Buscando la letra…', 'Puedes seguir escuchando.'],
     candidates:
       state.candidates?.length === 1
@@ -75,7 +75,13 @@ export function lyricView(state: Snapshot): { previous: string; current: string;
         : ['Hay varias versiones', 'Elige la letra que corresponde a tu canción.'],
     error: ['No se pudo obtener la letra', 'Vuelve a buscar o importa un archivo LRC.'],
     missing: ['Aún no hay letra', 'Importa un LRC o permite LRCLIB en ajustes.'],
+    ready: ['Aún no hay letra', 'Importa un LRC o permite LRCLIB en ajustes.'],
   };
-  const [current, next] = messages[state.lyrics_status] ?? messages.missing;
+  // Alternatives without a usable default: the listener has to pick one.
+  const key =
+    state.lyrics_status === 'missing' && state.candidates?.length
+      ? 'candidates'
+      : state.lyrics_status;
+  const [current, next] = messages[key] ?? messages.missing;
   return { previous: '', current, next };
 }
