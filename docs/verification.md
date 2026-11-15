@@ -173,3 +173,18 @@ durante la verificación.
 
 Mediciones de CPU/RAM, funcionamiento en pantalla completa exclusiva y empaquetado
 firmado quedan para validación posterior; no se anuncian cifras de rendimiento.
+
+## Rendimiento, mantenimiento y CI (15-11-2026)
+
+Cambios: snapshot sin carátula ni letras de alternativas, avance por
+`proyecto-reze:position`, worker sin sondeo, guardado de geometría agrupado,
+espera y caché en memoria para la búsqueda automática, candado tolerante a
+pánicos, estados tipados, Prettier, ESLint y workflow de GitHub Actions.
+
+Comprobado fuera de Windows: formato y Clippy sin advertencias en todo el
+workspace (el crate de Tauri compilado en cruz para `x86_64-pc-windows-gnu`),
+30 pruebas del crate core, 7 de Vitest y 12 de Playwright con Chromium.
+Las 7 pruebas del crate de Tauri solo se ejecutan en Windows y quedan a cargo
+del workflow. No se repitieron los scripts nativos de `scripts/`, que requieren
+el ejecutable, una sesión GSMTC y WebView2: conviene volver a pasarlos en el
+equipo antes de considerar verificado el comportamiento en tiempo real.
