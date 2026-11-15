@@ -79,6 +79,7 @@ export class MascotController {
   private el: HTMLElement;
   private clock: MascotClock;
   private timer: number | null = null;
+  private timerPeriod: number | null = null;
   private themeId: ThemeId = 'classic_cat';
   private manifest: SpriteManifest | null = null;
   private sheet: string | null = null;
@@ -90,6 +91,7 @@ export class MascotController {
   private greeted = false;
   private searchPlayed = false;
   private pausedPoseApplied = false;
+  private idleWaiting = false;
   private inputs: MascotInputs = {
     themeId: 'classic_cat',
     enabled: true,
@@ -118,7 +120,7 @@ export class MascotController {
     if (prev.searching && !this.inputs.searching) this.searchPlayed = false;
     if (!this.inputs.hasTrack) this.searchPlayed = false;
     if (prev.playing && !this.inputs.playing) this.pausedPoseApplied = false;
-    if (!prev.playing && this.inputs.playing) this.cancelGesture();
+    if (prev.playing !== this.inputs.playing || prev.hasTrack !== this.inputs.hasTrack) this.cancelGesture();
     this.resolve();
   }
 
@@ -208,7 +210,7 @@ export class MascotController {
         return;
       }
       this.startSequence(base);
-    } else {
+    } else if (!(base === 'paused' && this.pausedPoseApplied) && !this.idleWaiting) {
       this.ensureTimer();
     }
   }
@@ -222,7 +224,9 @@ export class MascotController {
 
   private startSequence(name: MascotState) {
     if (!this.manifest) return;
-    const seq = this.manifest.sequences[name] ?? this.manifest.sequences.static;
+    // A new sequence must replace the slow interval between idle blinks.
+    this.stopTimer();
+    this.idleWaiting = false;
     this.sequence = name;
     this.frame = 0;
     this.sequenceStartedAt = this.clock.now();
@@ -232,8 +236,15 @@ export class MascotController {
   }
 
   private ensureTimer() {
-    if (this.timer != null) return;
-    this.timer = this.clock.setInterval(() => this.tick(), 1000 / 16);
+    const fps = this.manifest?.sequences[this.sequence]?.fps ?? 8;
+    this.schedule(() => this.tick(), 1000 / fps);
+  }
+
+  private schedule(callback: () => void, period: number) {
+    if (this.timer != null && this.timerPeriod === period) return;
+    this.stopTimer();
+    this.timerPeriod = period;
+    this.timer = this.clock.setInterval(callback, period);
   }
 
   private stopTimer() {
@@ -241,6 +252,7 @@ export class MascotController {
       this.clock.clearInterval(this.timer);
       this.timer = null;
     }
+    this.timerPeriod = null;
   }
 
   private tick() {
@@ -280,9 +292,10 @@ export class MascotController {
         this.frame = 0;
         this.paintFrame();
         this.stopTimer();
+        this.idleWaiting = true;
         // schedule next idle blink later via next resolve when still idle
         this.sequenceStartedAt = this.clock.now();
-        this.timer = this.clock.setInterval(() => {
+        this.schedule(() => {
           if (this.baseState() === 'idle' && this.canAnimate()) this.startSequence('idle');
           else this.resolve();
         }, 7000);
@@ -314,8 +327,10 @@ export class MascotController {
 
   private paintAt(row: number, frame: number) {
     if (!this.manifest) return;
-    const size = this.manifest.frame_size;
-    this.el.style.backgroundPosition = `-${frame * size}px -${row * size}px`;
+    // Percentages address a whole cell at both 24 CSS px and the 48 px source.
+    const { columns, rows } = this.manifest;
+    this.el.style.backgroundSize = `${columns * 100}% ${rows * 100}%`;
+    this.el.style.backgroundPosition = `${columns > 1 ? frame * 100 / (columns - 1) : 0}% ${rows > 1 ? row * 100 / (rows - 1) : 0}%`;
     this.el.dataset.sequence = this.sequence;
     this.el.dataset.frame = String(frame);
   }

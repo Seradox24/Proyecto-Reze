@@ -3,7 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { Settings, Snapshot, PositionTick, ThemeId, LyricsBackdrop } from './types';
 import { DEFAULT_SETTINGS, normalizeLyricsBackdrop, normalizeThemeId } from './types';
-import { lyricView, time, readingStatus } from './view';
+import { lyricView, time, readingStatus, readingText } from './view';
 import { canHighlightWords, modeStatus, WordRenderer } from './karaoke';
 import { MascotController } from './mascot';
 import './style.css';
@@ -189,7 +189,7 @@ function render(next: Snapshot) {
     $('reading-detail').textContent = reading.detail;
   }
   if (reading && lyrics) {
-    const text = lyrics.plain_text || lyrics.lines.map(line => line.text).join('\n');
+    const text = readingText(lyrics);
     if ($('plain-text').textContent !== text) $('plain-text').textContent = text;
   }
   renderTimedLyrics(lyrics);

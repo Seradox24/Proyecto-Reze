@@ -50,6 +50,15 @@ manifiesto JSON). Motor en `ui/src/mascot.ts` con reloj independiente del karaok
 - En Solo letras solo anima con controles revelados.
 - Preferencia `cat_animation_enabled` (inicial `true`).
 
+Cada celda fuente de 48 px se ajusta completa a los 24 px CSS del dibujo mediante
+tamaño y posición porcentuales de la hoja; no recortar la celda a tamaño fuente.
+El temporizador cambia de cadencia al salir de reposo y conserva la espera entre
+parpadeos pese a snapshots repetidos. Una pose final de pausa no deja trabajo periódico.
+
+En modo lectura de una letra temporizada, mostrar el texto de las líneas ya
+procesadas. El campo `plain_text` de algunos Lyricsfile conserva etiquetas LRC
+y no debe sustituir esas líneas cuando la posición deja de ser fiable.
+
 ## Solo letras
 
 `view_mode: lyrics_only`. Fondo, borde y sombra de ventana transparentes. En

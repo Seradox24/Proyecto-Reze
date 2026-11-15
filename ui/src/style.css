@@ -166,7 +166,7 @@ button svg { pointer-events: none; }
   height: 24px;
   display: block;
   background-repeat: no-repeat;
-  background-size: 384px 288px;
+  background-size: 800% 600%;
   image-rendering: auto;
 }
 

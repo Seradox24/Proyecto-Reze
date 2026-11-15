@@ -64,6 +64,35 @@ function fakeEl(): HTMLElement {
 }
 
 describe('MascotController', () => {
+  it('preserves the rest between idle blinks across frequent snapshots', () => {
+    const clock = new FakeClock();
+    const controller = new MascotController(fakeEl(), clock);
+    controller.useAssets(fakeManifest(), 'data:image/png;base64,xx');
+    controller.update({enabled:true,reducedMotion:false,visible:true,hasTrack:false});
+    clock.advance(1100);
+    for (let i = 0; i < 8; i++) {
+      controller.update({hasTrack:false});
+      clock.advance(250);
+      expect(controller.currentFrame).toBe(0);
+    }
+    controller.destroy();
+  });
+  it('switches from the idle wait to the playing frame rate immediately', () => {
+    const clock = new FakeClock();
+    const controller = new MascotController(fakeEl(), clock);
+    controller.useAssets(fakeManifest(), 'data:image/png;base64,xx');
+    controller.update({enabled:true,reducedMotion:false,visible:true,hasTrack:false});
+    clock.advance(1100);
+    controller.update({hasTrack:true,playing:true});
+    clock.advance(250);
+    expect(controller.currentSequence).toBe('playing');
+    expect(controller.currentFrame).toBe(2);
+    controller.update({playing:false});
+    clock.advance(1600);
+    controller.update({playing:false});
+    expect(clock.activeTimers).toBe(0);
+    controller.destroy();
+  });
   it('keeps a static poster when animation is disabled', () => {
     const el = fakeEl();
     const clock = new FakeClock();

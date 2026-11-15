@@ -182,6 +182,20 @@ test('untimed lyrics have a prominent persistent notice and neutral text',async(
   await page.screenshot({path:'artifacts/reading-no-timing-small.png',omitBackground:true});
 });
 
+test('reading a timed document never leaks LRC timestamps when timing or version confirmation is unavailable',async({page})=>{
+  await page.evaluate(()=> (window as any).__testSetState({timing_reliable:false,sync_confirmed:true,lyrics:{source:'Prueba',source_id:10,format:'line_synced',warnings:[],plain_text:'[00:00.00]Primera frase\n[00:30.00]Segunda frase',lines:[{at_ms:0,text:'Primera frase'},{at_ms:30000,text:'Segunda frase'}]}}));
+  await expect(page.locator('#reading-label')).toContainText('sin posición fiable');
+  await expect(page.locator('#plain-text')).toHaveText('Primera frase\nSegunda frase');
+  await expect(page.locator('#reading')).not.toContainText('00:30');
+  await expect(page.locator('#elapsed')).toHaveText('0:30');
+  await page.evaluate(()=> (window as any).__testSetState({timing_reliable:true,active_line:1}));
+  await expect(page.locator('#reading')).toBeHidden();
+  await expect(page.locator('#current')).toHaveText('Segunda frase');
+  await page.evaluate(()=> (window as any).__testSetState({sync_confirmed:false}));
+  await expect(page.locator('#reading-label')).toContainText('versión por confirmar');
+  await expect(page.locator('#plain-text')).toHaveText('Primera frase\nSegunda frase');
+});
+
 test('cat menu toggles animation immediately and settings preview can cancel it',async({page})=>{
   await page.getByRole('button',{name:'Opciones del gatito'}).click();
   await expect(page.locator('#cat-menu')).toBeVisible();
@@ -215,6 +229,7 @@ test('mascot animation advances while playing and stops when disabled', async ({
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.waitForTimeout(300);
   const before = await page.locator('#mascot').getAttribute('data-frame');
+  await expect.poll(()=>page.locator('#mascot').getAttribute('data-frame')).not.toBe(before);
   await page.waitForTimeout(450);
   const mid = await page.locator('#mascot').getAttribute('data-frame');
   await expect(page.locator('#mascot')).toHaveAttribute('data-sequence', /playing|greet|static/);
@@ -244,12 +259,14 @@ test('expanded theme capture and lyrics-only backdrops', async ({page}) => {
   await page.evaluate(() => {
     document.body.style.background = '#f5f5f5';
   });
-  await page.screenshot({ path: 'artifacts/lyrics-only-dark-on-light.png', omitBackground: false });
+  await expect(page.locator('#current')).toHaveCSS('color','rgb(255, 255, 255)');
+  await page.screenshot({ path: 'artifacts/lyrics-only-dark-on-light.png', omitBackground: false, animations:'disabled' });
   await page.getByRole('button', { name: 'Abrir ajustes' }).click();
   await page.locator('#lyrics-backdrop').selectOption('light');
   await page.getByRole('button', { name: 'Guardar ajustes' }).click();
   await page.evaluate(() => {
     document.body.style.background = '#1a1a1a';
   });
-  await page.screenshot({ path: 'artifacts/lyrics-only-light-on-dark.png', omitBackground: false });
+  await expect(page.locator('#current')).toHaveCSS('color','rgb(32, 32, 36)');
+  await page.screenshot({ path: 'artifacts/lyrics-only-light-on-dark.png', omitBackground: false, animations:'disabled' });
 });

@@ -1,4 +1,11 @@
 import type { Snapshot } from './types';
+export function readingText(lyrics: Snapshot['lyrics']): string {
+  if (!lyrics) return '';
+  // A timed document's plain field can still contain raw LRC timestamps.
+  // Parsed lines are safe to display when Windows timing becomes unavailable.
+  if (lyrics.format === 'line_synced') return lyrics.lines.map(line => line.text).join('\n');
+  return lyrics.plain_text;
+}
 export function readingStatus(state: Snapshot,lyrics:Snapshot['lyrics']):{title:string;detail:string}|null{
   if(lyrics?.format==='plain')return {title:'Modo lectura · sin tiempos',detail:'Esta letra no tiene marcas de tiempo. Se muestra sin seguimiento ni resaltado.'};
   if(lyrics?.format!=='line_synced')return null;

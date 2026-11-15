@@ -1,8 +1,18 @@
 import {describe, it, expect} from 'vitest';
-import {time, lyricView, readingStatus} from './view';
+import {time, lyricView, readingStatus, readingText} from './view';
 import type {Snapshot} from './types';
 const base = {track: {title:'Own',artist:'Author',album:'',duration_ms:10000}, selected_session:'1', lyrics:null, lyrics_status:'missing',active_line:null,timing_reliable:true} as Snapshot;
 describe('presentation', () => {
+  it('uses parsed lines instead of a raw timed plain field when reading', () => {
+    const lyrics: NonNullable<Snapshot['lyrics']> = {
+      source:'Prueba',source_id:null,format:'line_synced',warnings:[],
+      plain_text:'[00:01.00]Primera frase\n[00:02.00]Segunda frase',
+      lines:[{at_ms:1000,text:'Primera frase'},{at_ms:2000,text:'Segunda frase'}],
+    };
+    expect(readingText(lyrics)).toBe('Primera frase\nSegunda frase');
+    expect(readingText({...lyrics,format:'plain',lines:[],plain_text:'Texto [entre corchetes]'})).toBe('Texto [entre corchetes]');
+    expect(readingText(null)).toBe('');
+  });
   it('distinguishes untimed text from unconfirmed versions and missing playback position',()=>{
     const plain:NonNullable<Snapshot['lyrics']>={format:'plain',lines:[],plain_text:'Texto propio',source:'Prueba',source_id:null,warnings:[]};
     const synced={...plain,format:'line_synced',lines:[{at_ms:0,text:'Texto propio'}]} as NonNullable<Snapshot['lyrics']>;
