@@ -37,11 +37,5 @@ jobs:
       - run: npm test
       # Uses the Microsoft Edge preinstalled on the runner; the IPC is simulated.
       - run: npx playwright test --trace off
-      # Proves the optimised executable links, and keeps it downloadable from the run.
+      # Proves the optimised executable compiles and links.
       - run: npm run desktop:build
-      - uses: actions/upload-artifact@v4
-        with:
-          name: proyecto-reze-${{ github.sha }}
-          path: target/release/proyecto-reze.exe
-          if-no-files-found: error
-          retention-days: 14
