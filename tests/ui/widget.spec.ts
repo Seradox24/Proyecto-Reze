@@ -455,4 +455,10 @@ test('cat skin is previewed from settings, saved with the form and usable when s
   await page.getByRole('button', { name: 'Cambiar a solo letras' }).click();
   await expect(page.locator('#mascot')).toBeHidden();
   await page.screenshot({ path: 'artifacts/skin-mochi-lyrics-only.png' });
+  // Controls over the desktop turn white; the ones inside a panel must stay readable.
+  const color = (id: string) => page.locator(id).evaluate((e) => getComputedStyle(e).color);
+  expect(await color('#correct-search')).toBe('rgb(255, 255, 255)');
+  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+  expect(await color('#close-settings')).not.toBe('rgb(255, 255, 255)');
+  await page.screenshot({ path: 'artifacts/skin-mochi-lyrics-only-settings.png' });
 });

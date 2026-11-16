@@ -416,9 +416,15 @@
 [data-theme='mochi_cat'] .lyrics-only #progress-wrap {
   display: none;
 }
-[data-theme='mochi_cat'] .lyrics-only :is(#drag-handle, .text-button) {
+/* Only the controls drawn over the desktop: panels keep their own text colour. */
+[data-theme='mochi_cat'] .lyrics-only :is(#drag-handle, #lyric-actions .text-button) {
   color: #fff;
   text-shadow: 0 1px 3px var(--overlay-shadow);
+}
+
+[data-theme='mochi_cat'] .lyrics-only #lyric-actions .text-button:hover:not(:disabled) {
+  color: var(--accent);
+  text-shadow: none;
 }
 
 /* ── Small windows ──────────────────────────────────────────────────────── */
