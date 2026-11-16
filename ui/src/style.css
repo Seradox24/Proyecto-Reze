@@ -1,6 +1,6 @@
 :root {
   font-family: 'Segoe UI', sans-serif;
-  color: #f2f3ee;
+  color: var(--text);
   background: transparent;
   font-synthesis: none;
   --lyric-size: 23px;
@@ -10,6 +10,35 @@
   --accent: #c1e8b3;
   --surface: #1a1f1c;
   color-scheme: dark;
+  /* Every colour below is a role. A skin restyles the app by redefining them. */
+  --text: #f2f3ee;
+  --bg-rgb: 26 31 28;
+  --accent-soft: #c1e8b312;
+  --accent-hover: #d7f1ce;
+  --on-accent: #14200f;
+  --label: #e1e6dc;
+  --placeholder: #a5af9e;
+  --border: #899a8038;
+  --divider: #65745b50;
+  --field-bg: #242c25;
+  --field-border: #6c7b634f;
+  --track: #81977733;
+  --scroll: #687662;
+  --notice-bg: #354332;
+  --shadow: #0004;
+  --alert: #d8dfbf;
+  --danger: #e0b8ac;
+  --error: #f3b5a7;
+  --reading-bg: #353226;
+  --reading-text: #f3d5a1;
+  --reading-detail: #e0d7c6;
+  --plain-text: #d5dcd2;
+  /* Text drawn straight over the desktop in the transparent view. */
+  --overlay-text: #fff;
+  --overlay-soft: #f2f3ee;
+  --overlay-muted: #e1e6dc;
+  --overlay-pending: #c3ccbf;
+  --overlay-shadow: #000;
 }
 * {
   box-sizing: border-box;
@@ -48,7 +77,7 @@ button {
 }
 button:hover:not(:disabled) {
   color: var(--accent);
-  background: #c1e8b312;
+  background: var(--accent-soft);
 }
 svg {
   width: 18px;
@@ -67,26 +96,26 @@ button svg {
   display: none !important;
 }
 ::selection {
-  background: #c1e8b3;
-  color: #14200f;
+  background: var(--accent);
+  color: var(--on-accent);
 }
 ::-webkit-scrollbar {
   width: 5px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #687662;
+  background: var(--scroll);
   border-radius: 4px;
 }
 #widget {
   height: 100dvh;
   min-height: 180px;
   position: relative;
-  background: rgb(26 31 28 / var(--opacity));
+  background: rgb(var(--bg-rgb) / var(--opacity));
   border-radius: 12px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  border: 1px solid #899a8038;
+  border: 1px solid var(--border);
 }
 #titlebar {
   display: flex;
@@ -105,6 +134,10 @@ button svg {
   font-size: 12px;
   color: var(--muted);
   height: 28px;
+}
+.brand-cat,
+#mascot {
+  display: none;
 }
 #drag-handle svg {
   width: 16px;
@@ -230,7 +263,7 @@ progress {
   appearance: none;
 }
 progress::-webkit-progress-bar {
-  background: #81977733;
+  background: var(--track);
 }
 progress::-webkit-progress-value {
   background: var(--accent);
@@ -242,13 +275,13 @@ progress::-webkit-progress-value {
   right: 12px;
   margin: 0;
   padding: 9px 12px;
-  background: #354332;
-  color: #f2f3ee;
+  background: var(--notice-bg);
+  color: var(--text);
   font-size: 12px;
   border-radius: 5px;
   z-index: 4;
   line-height: 1.45;
-  box-shadow: 0 4px 15px #0004;
+  box-shadow: 0 4px 15px var(--shadow);
 }
 .panel {
   position: absolute;
@@ -277,17 +310,17 @@ label {
   display: block;
   font-size: 12px;
   margin-top: 12px;
-  color: #e1e6dc;
+  color: var(--label);
 }
 input:not([type='checkbox']),
 select {
   width: 100%;
   margin-top: 6px;
   min-height: 32px;
-  border: 1px solid #6c7b634f;
+  border: 1px solid var(--field-border);
   border-radius: 5px;
-  background: #242c25;
-  color: #f2f3ee;
+  background: var(--field-bg);
+  color: var(--text);
   padding: 6px 8px;
 }
 input[type='range'] {
@@ -323,7 +356,7 @@ output {
 }
 fieldset {
   border: 0;
-  border-top: 1px solid #65745b50;
+  border-top: 1px solid var(--divider);
   margin: 22px 0 0;
   padding: 0;
 }
@@ -332,7 +365,7 @@ legend {
   padding: 0 10px 0 0;
 }
 input::placeholder {
-  color: #a5af9e;
+  color: var(--placeholder);
 }
 .form-actions {
   display: flex;
@@ -343,22 +376,22 @@ input::placeholder {
 }
 .primary {
   background: var(--accent);
-  color: #1a2b16;
+  color: var(--on-accent);
   padding: 9px 12px;
   border-radius: 5px;
   font-size: 12px;
   font-weight: 600;
 }
 .primary:hover:not(:disabled) {
-  background: #d7f1ce;
-  color: #14200f;
+  background: var(--accent-hover);
+  color: var(--on-accent);
 }
 .danger {
-  color: #e0b8ac;
+  color: var(--danger);
   margin-top: 15px;
 }
 #form-error {
-  color: #f3b5a7;
+  color: var(--error);
   font-size: 12px;
   line-height: 1.5;
 }
@@ -367,7 +400,7 @@ input::placeholder {
   width: 100%;
   text-align: left;
   padding: 14px 0;
-  border-bottom: 1px solid #65745b50;
+  border-bottom: 1px solid var(--divider);
 }
 .candidate strong {
   display: block;
@@ -416,14 +449,14 @@ input::placeholder {
 }
 .lyrics-only .lyric {
   text-shadow:
-    0 2px 5px #000,
-    0 1px 2px #000;
+    0 2px 5px var(--overlay-shadow),
+    0 1px 2px var(--overlay-shadow);
 }
 .lyrics-only .current {
-  color: #fff;
+  color: var(--overlay-text);
 }
 .lyrics-only .context {
-  color: #e1e6dc;
+  color: var(--overlay-muted);
 }
 .lyrics-only .panel {
   border-radius: 10px;
@@ -465,7 +498,7 @@ input::placeholder {
 #selection-alert {
   font-size: 11px;
   line-height: 1.4;
-  color: #d8dfbf;
+  color: var(--alert);
   margin: 6px 18px 0;
   max-height: 46px;
   overflow: auto;
@@ -504,8 +537,8 @@ input::placeholder {
   );
 }
 .lyrics-only .karaoke-word {
-  --sung-color: #fff;
-  --pending-color: #c3ccbf;
+  --sung-color: var(--overlay-text);
+  --pending-color: var(--overlay-pending);
 }
 
 /* Untimed text is deliberately neutral; the persistent status carries the emphasis. */
@@ -519,7 +552,7 @@ input::placeholder {
 }
 #reading-status {
   flex-shrink: 0;
-  background: #353226;
+  background: var(--reading-bg);
   border-radius: 6px;
   padding: 9px 11px;
   text-align: left;
@@ -528,14 +561,14 @@ input::placeholder {
   display: block;
   font-size: 13px;
   font-weight: 700;
-  color: #f3d5a1;
+  color: var(--reading-text);
   line-height: 1.4;
   margin: 0;
 }
 #reading-detail {
   font-size: 11px;
   line-height: 1.45;
-  color: #e0d7c6;
+  color: var(--reading-detail);
   margin: 4px 0 0;
 }
 #plain-text {
@@ -543,7 +576,7 @@ input::placeholder {
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  color: #d5dcd2;
+  color: var(--plain-text);
   font-weight: 400;
   line-height: 1.65;
   margin: 0;
@@ -554,10 +587,10 @@ input::placeholder {
   text-shadow: none;
 }
 .lyrics-only #plain-text {
-  color: #f2f3ee;
+  color: var(--overlay-soft);
   text-shadow:
-    0 2px 5px #000,
-    0 1px 2px #000;
+    0 2px 5px var(--overlay-shadow),
+    0 1px 2px var(--overlay-shadow);
 }
 @media (max-height: 320px) {
   #reading-detail {

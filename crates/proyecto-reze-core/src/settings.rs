@@ -26,6 +26,17 @@ pub enum Alignment {
     Right,
 }
 
+/// Visual skin of the interface. An identifier this build does not know (a newer or
+/// hand-edited file) falls back to the classic look instead of discarding every setting.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ThemeId {
+    MochiCat,
+    #[default]
+    #[serde(other)]
+    Classic,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum KaraokeMode {
@@ -43,6 +54,7 @@ pub struct Settings {
     pub font_size: u32,
     pub opacity: f64,
     pub alignment: Alignment,
+    pub theme_id: ThemeId,
     pub reduced_motion: bool,
     pub z_order: ZOrder,
     pub view_mode: ViewMode,
@@ -61,6 +73,7 @@ impl Default for Settings {
             font_size: 23,
             opacity: 1.0,
             alignment: Alignment::Center,
+            theme_id: ThemeId::Classic,
             reduced_motion: false,
             z_order: ZOrder::Normal,
             view_mode: ViewMode::Compact,
@@ -202,6 +215,23 @@ mod tests {
         save(&path, &settings).unwrap();
         save(&path, &settings).unwrap();
         assert_eq!(load(&path).0, settings);
+    }
+    #[test]
+    fn theme_defaults_to_classic_and_unknown_ids_keep_the_other_settings() {
+        let old: Settings = serde_json::from_str(r#"{"offset_ms":500}"#).unwrap();
+        assert_eq!(old.theme_id, ThemeId::Classic);
+        let unknown: Settings =
+            serde_json::from_str(r#"{"offset_ms":500,"theme_id":"from_the_future"}"#).unwrap();
+        assert_eq!(unknown.theme_id, ThemeId::Classic);
+        assert_eq!(unknown.offset_ms, 500);
+        assert!(unknown.validate().is_ok());
+        let cat = Settings {
+            theme_id: ThemeId::MochiCat,
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&cat).unwrap();
+        assert!(json.contains(r#""theme_id":"mochi_cat""#));
+        assert_eq!(serde_json::from_str::<Settings>(&json).unwrap(), cat);
     }
     #[test]
     fn old_contact_is_ignored_and_never_saved() {

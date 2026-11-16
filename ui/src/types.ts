@@ -1,3 +1,5 @@
+export const THEMES = ['classic', 'mochi_cat'] as const;
+export type ThemeId = (typeof THEMES)[number];
 export interface Settings {
   karaoke_mode?: 'line' | 'word';
   schema_version: number;
@@ -6,6 +8,8 @@ export interface Settings {
   font_size: number;
   opacity: number;
   alignment: 'left' | 'center' | 'right';
+  /** Missing in settings saved before skins existed. */
+  theme_id?: ThemeId;
   reduced_motion: boolean;
   z_order: 'top' | 'normal' | 'bottom';
   view_mode: 'compact' | 'lyrics_only';
