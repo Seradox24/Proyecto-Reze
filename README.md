@@ -2,7 +2,9 @@
 
 Widget Windows de letras sincronizadas: **Windows GSMTC** entrega sesiones,
 metadatos y tiempo; los LRC locales o LRCLIB entregan las letras. No usa APIs,
-cuentas ni credenciales de Spotify o YouTube y no reproduce ni descarga audio.
+cuentas ni credenciales de Spotify o YouTube. También permite controlar la sesión
+elegida: anterior, reproducir/pausar y siguiente. El audio permanece en el
+reproductor original y Proyecto Reze no lo descarga.
 
 ## Requisitos
 
@@ -44,8 +46,14 @@ sí solo no inicia Vite: para desarrollo usa `npm run desktop`.
    Ese flujo tampoco necesita Internet, correo ni una cuenta musical.
 4. Ajusta el desfase si hace falta: valores positivos adelantan la letra.
 5. Alterna vista compacta/solo letras y nivel encima/normal/debajo en ajustes.
-6. En **Ajustes → Tema** puedes cambiar el aspecto completo: **Clásico** o
-   **Gatito mochi**, un tema claro con un gatito que acompaña la canción.
+6. Usa los botones junto al título para anterior, reproducir/pausar y siguiente.
+   Windows indica qué controles admite cada sesión; los demás se desactivan.
+   En Solo letras, aparecen con los controles al pasar el ratón o usar el teclado.
+7. En **Letra → Tamaño de letra…**, usa **A− / A+** para ajustar de 14 a 64 px
+   en pasos de 2 px. Se guarda automáticamente. El mismo acceso está en el menú
+   del gatito, también en Solo letras; Ajustes conserva la entrada de tamaño exacto.
+8. En **Ajustes → Apariencia → Tema** puedes elegir entre cinco temas, entre ellos
+   **Gatito mochi**, claro y de formas redondeadas.
 
 Cerrar u ocultar conserva el proceso si existe bandeja. Usa su menú para mostrar,
 recuperar la posición, abrir ajustes o salir. Si falla la bandeja, cerrar termina

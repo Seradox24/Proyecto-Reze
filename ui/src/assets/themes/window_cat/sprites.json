@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "theme_id": "window_cat",
+  "frame_size": 48,
+  "columns": 8,
+  "rows": 6,
+  "sheet": "sprites.png",
+  "sequences": {
+    "idle": {
+      "row": 0,
+      "frames": 4,
+      "fps": 4,
+      "loop": false,
+      "static_frame": 0
+    },
+    "playing": {
+      "row": 1,
+      "frames": 8,
+      "fps": 8,
+      "loop": true,
+      "static_frame": 0
+    },
+    "paused": {
+      "row": 2,
+      "frames": 6,
+      "fps": 4,
+      "loop": false,
+      "static_frame": 5
+    },
+    "greet": {
+      "row": 3,
+      "frames": 6,
+      "fps": 8,
+      "loop": false,
+      "static_frame": 0
+    },
+    "searching": {
+      "row": 4,
+      "frames": 6,
+      "fps": 6,
+      "loop": false,
+      "static_frame": 0
+    },
+    "static": {
+      "row": 5,
+      "frames": 1,
+      "fps": 1,
+      "loop": false,
+      "static_frame": 0
+    }
+  },
+  "posters": {
+    "idle": {
+      "row": 5,
+      "frame": 0
+    },
+    "playing": {
+      "row": 1,
+      "frame": 0
+    },
+    "paused": {
+      "row": 2,
+      "frame": 5
+    },
+    "searching": {
+      "row": 4,
+      "frame": 0
+    }
+  }
+}

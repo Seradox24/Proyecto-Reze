@@ -3,26 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="dark light" />
     <title>Proyecto Reze</title>
   </head>
   <body>
     <main id="widget">
       <header id="titlebar">
+        <button
+          type="button"
+          id="cat-options"
+          class="cat-button"
+          aria-label="Opciones del gatito"
+          aria-haspopup="dialog"
+          aria-expanded="false"
+          title="Opciones del gatito"
+        >
+          <span id="mascot" class="mascot" aria-hidden="true"></span>
+        </button>
         <div id="drag-handle" title="Arrastrar ventana">
-          <svg class="brand-classic" aria-hidden="true" viewBox="0 0 24 24">
-            <path d="M7 19V5h5a4 4 0 0 1 0 8H7m5 0 5 6" />
-          </svg>
-          <svg class="brand-cat" aria-hidden="true" viewBox="0 0 24 24">
-            <path
-              class="cat-face"
-              d="M4.2 10.5 3.4 3.6l5.3 3a9.6 9.6 0 0 1 6.6 0l5.3-3-.8 6.9a8.6 7.6 0 1 1-15.6 0Z"
-            />
-            <circle class="cat-eye" cx="8.8" cy="13" r="1.25" />
-            <circle class="cat-eye" cx="15.2" cy="13" r="1.25" />
-            <path class="cat-smile" d="M10.4 16.1q1.6 1.5 1.6 0 0 1.5 1.6 0" />
-          </svg>
-          <span>Proyecto Reze</span>
+          <span id="brand-label">Proyecto Reze</span>
         </div>
         <div class="window-actions">
           <button id="view-toggle" aria-label="Cambiar a solo letras" title="Cambiar vista">
@@ -33,24 +32,78 @@
               <path d="M4 7h16M4 17h16M9 4v6M15 14v6" />
             </svg>
           </button>
-          <button id="hide" aria-label="Ocultar en la bandeja" title="Ocultar">
+          <button id="hide" aria-label="Ocultar en la bandeja" title="Ocultar en la bandeja">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /></svg>
           </button>
         </div>
       </header>
+
+      <div id="cat-menu" class="popover" hidden role="dialog" aria-label="Opciones del gatito">
+        <label class="check"
+          ><input id="cat-animation" type="checkbox" checked />Animar gatito</label
+        >
+        <p id="cat-animation-help" class="help">
+          El gatito se mueve mientras escuchas. Puedes dejarlo quieto cuando quieras.
+        </p>
+        <button type="button" id="cat-open-appearance" class="text-button">Cambiar tema…</button>
+        <button
+          type="button"
+          id="cat-open-font-size"
+          class="text-button"
+          aria-haspopup="dialog"
+          aria-controls="font-size-menu"
+        >
+          Tamaño de letra…
+        </button>
+      </div>
+
       <section id="player" aria-label="Reproducción actual">
         <img id="artwork" alt="Carátula de la pista" hidden />
         <div class="track-info">
           <h1 id="track-title">Tu música, a la vista.</h1>
           <p id="track-artist">Selecciona una sesión para empezar</p>
         </div>
+        <div id="transport" role="group" aria-label="Controles de reproducción" aria-busy="false">
+          <button
+            type="button"
+            id="transport-previous"
+            aria-label="Canción anterior"
+            title="Canción anterior"
+            disabled
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 5v14M18 5 8 12l10 7V5Z" /></svg>
+          </button>
+          <button
+            type="button"
+            id="transport-play-pause"
+            aria-label="Reproducir"
+            title="Reproducir"
+            disabled
+          >
+            <svg id="transport-play-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <path d="m8 4 12 8-12 8V4Z" /></svg
+            ><svg id="transport-pause-icon" aria-hidden="true" viewBox="0 0 24 24" hidden>
+              <path d="M8 5v14M16 5v14" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            id="transport-next"
+            aria-label="Canción siguiente"
+            title="Canción siguiente"
+            disabled
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M18 5v14M6 5l10 7-10 7V5Z" /></svg>
+          </button>
+        </div>
         <span id="playback" class="status-pill">Sin sesión</span>
-        <span id="karaoke-badge" class="status-pill">Línea</span>
       </section>
       <p id="selection-alert" role="status" hidden></p>
       <section id="lyrics" aria-label="Letra de la canción">
         <p id="previous" class="lyric context"></p>
-        <p id="current" class="lyric current">Abre tu reproductor</p>
+        <div id="current-band" class="lyric-band">
+          <p id="current" class="lyric current">Abre tu reproductor</p>
+        </div>
         <p id="next" class="lyric context">Proyecto Reze sigue la reproducción de Windows.</p>
       </section>
       <section id="reading" hidden aria-label="Letra sin sincronización">
@@ -60,151 +113,250 @@
             Esta letra no tiene marcas de tiempo. Se muestra sin seguimiento ni resaltado.
           </p>
         </div>
-        <p id="plain-text" tabindex="0" aria-label="Texto de la letra sin seguimiento"></p>
+        <div id="plain-band" class="lyric-band reading-band">
+          <p id="plain-text" tabindex="0" aria-label="Texto de la letra sin seguimiento"></p>
+        </div>
       </section>
       <div id="progress-wrap">
-        <!-- Only drawn by skins that have a mascot; purely decorative. -->
-        <div id="mascot" aria-hidden="true">
-          <svg viewBox="0 0 44 34">
-            <path class="cat-tail" d="M13 28c-7 1.5-10.5-3-8.5-9" />
-            <ellipse class="cat-body" cx="22" cy="24.5" rx="11" ry="8" />
-            <path class="cat-ear" d="M13 13 11.5 3.5l8 5Z" />
-            <path class="cat-ear" d="M31 13l1.5-9.5-8 5Z" />
-            <path class="cat-ear-inner" d="M14.3 10.5 13.5 6l3.8 2.4Z" />
-            <path class="cat-ear-inner" d="M29.7 10.5 30.5 6l-3.8 2.4Z" />
-            <ellipse class="cat-head" cx="22" cy="15.5" rx="11" ry="8.5" />
-            <g class="cat-eyes-open">
-              <circle cx="17.5" cy="15.5" r="1.5" />
-              <circle cx="26.5" cy="15.5" r="1.5" />
-            </g>
-            <g class="cat-eyes-closed">
-              <path d="M15.7 15.6q1.8 1.7 3.6 0" />
-              <path d="M24.7 15.6q1.8 1.7 3.6 0" />
-            </g>
-            <path class="cat-mouth" d="M20.4 18.6q1.6 1.5 1.6 0 0 1.5 1.6 0" />
-            <ellipse class="cat-blush" cx="14.6" cy="18.6" rx="2" ry="1.2" />
-            <ellipse class="cat-blush" cx="29.4" cy="18.6" rx="2" ry="1.2" />
-            <path class="cat-paws" d="M17 31.3h3.2M23.8 31.3H27" />
-          </svg>
-          <span class="cat-zzz">z</span>
-        </div>
+        <div id="progress-track"><div id="progress-fill"></div></div>
         <progress id="progress" max="1" value="0" aria-label="Progreso de reproducción"></progress>
       </div>
       <footer id="toolbar">
         <button id="select-source" class="text-button">Elegir sesión</button>
         <div class="footer-actions">
-          <button id="import" class="text-button">Importar LRC</button
-          ><button id="search" class="text-button">Buscar letra</button
-          ><span id="elapsed">0:00</span>
+          <button
+            type="button"
+            id="lyrics-menu-button"
+            class="text-button menu-trigger"
+            aria-haspopup="true"
+            aria-expanded="false"
+          >
+            Letra
+          </button>
+          <button
+            type="button"
+            id="karaoke-badge"
+            class="text-button menu-trigger"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            title="Modo de seguimiento"
+          >
+            Línea
+          </button>
+          <span id="elapsed">0:00</span>
         </div>
       </footer>
-      <div id="lyric-actions">
-        <button id="correct-search" class="text-button">Corregir búsqueda</button
-        ><button id="translate" class="text-button" hidden>Traducir al español</button
-        ><button id="cancel-translation" class="text-button" hidden>Cancelar traducción</button>
+
+      <div id="lyrics-menu" class="popover" hidden role="dialog" aria-label="Menú Letra">
+        <button
+          type="button"
+          id="open-font-size"
+          class="menu-item"
+          aria-haspopup="dialog"
+          aria-controls="font-size-menu"
+        >
+          Tamaño de letra…
+        </button>
+        <button type="button" id="search" class="menu-item">Buscar letra</button>
+        <button type="button" id="import" class="menu-item">Importar archivo de letra…</button>
+        <button type="button" id="open-path-import" class="menu-item">
+          Abrir archivo por su ruta…
+        </button>
+        <button type="button" id="correct-search" class="menu-item">Corregir búsqueda…</button>
+        <button type="button" id="translate" class="menu-item" hidden>Traducir al español…</button>
+        <button type="button" id="cancel-translation" class="menu-item" hidden>
+          Cancelar traducción
+        </button>
       </div>
+
+      <div
+        id="font-size-menu"
+        class="popover"
+        hidden
+        role="dialog"
+        aria-labelledby="quick-font-heading"
+      >
+        <p id="quick-font-heading" class="popover-heading">Tamaño de letra</p>
+        <div
+          id="quick-font-controls"
+          class="font-size-controls"
+          role="group"
+          aria-labelledby="quick-font-heading"
+          aria-busy="false"
+        >
+          <button type="button" id="font-size-decrease" aria-label="Disminuir tamaño de letra">
+            A−
+          </button>
+          <output id="quick-font-value" aria-live="polite" aria-atomic="true">23 px</output>
+          <button type="button" id="font-size-increase" aria-label="Aumentar tamaño de letra">
+            A+
+          </button>
+        </div>
+        <p class="help">De 14 a 64 px. Se guarda automáticamente.</p>
+      </div>
+
+      <div
+        id="karaoke-menu"
+        class="popover"
+        hidden
+        role="listbox"
+        aria-label="Preferencia de seguimiento"
+      >
+        <button type="button" class="menu-item" role="option" data-karaoke="line">Por línea</button>
+        <button type="button" class="menu-item" role="option" data-karaoke="word">
+          Por palabra
+        </button>
+        <p id="karaoke-status" class="help" role="status">Resaltado por línea.</p>
+      </div>
+
       <p id="notice" role="status" hidden></p>
+
       <section id="settings-panel" class="panel" hidden aria-label="Ajustes">
         <header class="panel-header">
           <h2>Ajustes</h2>
           <button id="close-settings" class="text-button">Volver</button>
         </header>
-        <label
-          >Sesión de Windows<select id="sessions">
-            <option value="">Selecciona una sesión</option>
-          </select></label
-        >
-        <p class="help">La sesión elegida permanece fija. Si se cierra, vuelve a seleccionarla.</p>
-        <p id="source-info" class="help">Sin fuente de letras seleccionada.</p>
-        <details>
-          <summary>Abrir un LRC por su ruta</summary>
-          <form id="local-lrc-form">
-            <label
-              >Ruta completa del archivo LRC<input
-                id="local-lrc-path"
-                type="text"
-                placeholder="D:\\Letras\\cancion.lrc"
-                required /></label
-            ><button class="primary" type="submit">Cargar LRC local</button>
-            <p class="help">Alternativa al selector de archivos. No necesita Internet ni correo.</p>
-          </form>
-        </details>
         <form id="settings-form">
-          <div class="two-column">
+          <fieldset class="settings-group">
+            <legend>Sesión</legend>
             <label
-              >Nivel de ventana<select id="z-order">
-                <option value="normal">Normal</option>
-                <option value="top">Siempre encima</option>
-                <option value="bottom">Siempre debajo</option>
+              >Sesión de Windows<select id="sessions">
+                <option value="">Selecciona una sesión</option>
               </select></label
-            ><label
-              >Vista<select id="view-mode">
-                <option value="compact">Compacta</option>
-                <option value="lyrics_only">Solo letras</option>
-              </select></label
-            >
-          </div>
-          <label
-            >Desfase <output id="offset-value">0 ms</output
-            ><input id="offset" type="range" min="-10000" max="10000" step="100" value="0"
-          /></label>
-          <p class="help">Un valor positivo adelanta la letra.</p>
-          <label
-            >Modo karaoke<select id="karaoke-mode">
-              <option value="line">Por línea</option>
-              <option value="word">Por palabra</option>
-            </select></label
-          >
-          <p id="karaoke-status" class="help" role="status">Resaltado por línea.</p>
-          <div class="two-column">
-            <label
-              >Tamaño de letra<input
-                id="font-size"
-                type="number"
-                min="14"
-                max="64"
-                value="23"
-                required /></label
-            ><label
-              >Alineación<select id="alignment">
-                <option value="center">Centrada</option>
-                <option value="left">Izquierda</option>
-                <option value="right">Derecha</option>
-              </select></label
-            >
-          </div>
-          <label
-            >Tema<select id="theme">
-              <option value="classic">Clásico</option>
-              <option value="mochi_cat">Gatito mochi</option>
-            </select></label
-          >
-          <p class="help">Cambia todo el aspecto del widget. Se guarda con los demás ajustes.</p>
-          <label
-            >Opacidad<input id="opacity" type="range" min="0.2" max="1" step="0.05" value="1"
-          /></label>
-          <label class="check"
-            ><input id="reduced-motion" type="checkbox" />Reducir movimiento</label
-          >
-          <fieldset>
-            <legend>Letras</legend>
-            <label class="check"
-              ><input id="network-allowed" type="checkbox" />Buscar letras automáticamente</label
             >
             <p class="help">
-              Proyecto Reze busca en LRCLIB al cambiar de canción. Envía título, artista, álbum y
-              duración de la sesión elegida. No necesitas cuenta, correo ni URL. Puedes desactivarlo
-              y usar un LRC local.
+              La sesión elegida permanece fija. Si se cierra, vuelve a seleccionarla.
             </p>
           </fieldset>
+
+          <fieldset class="settings-group" id="appearance-group">
+            <legend>Apariencia</legend>
+            <label
+              >Tema
+              <select id="theme-id">
+                <option value="classic_cat">Clásico con gato</option>
+                <option value="window_cat">Gatito en la ventana</option>
+                <option value="cat_notebook">Cuaderno de gatitos</option>
+                <option value="cat_constellation">Constelación felina</option>
+                <option value="mochi_cat">Gatito mochi</option>
+              </select>
+            </label>
+            <p id="theme-help" class="help">
+              Clásico con gato conserva la identidad habitual sobre verde carbón.
+            </p>
+            <label class="check"
+              ><input id="settings-cat-animation" type="checkbox" checked />Animar gatito</label
+            >
+            <div class="two-column">
+              <label
+                >Vista<select id="view-mode">
+                  <option value="compact">Compacta</option>
+                  <option value="lyrics_only">Solo letras</option>
+                </select></label
+              >
+              <label
+                >Fondo detrás de la letra<select id="lyrics-backdrop">
+                  <option value="dark">Oscuro</option>
+                  <option value="light">Claro</option>
+                </select></label
+              >
+            </div>
+            <p class="help">La banda de contraste solo aplica en Solo letras.</p>
+            <div class="two-column">
+              <label
+                >Tamaño de letra<input
+                  id="font-size"
+                  type="number"
+                  min="14"
+                  max="64"
+                  value="23"
+                  required
+              /></label>
+              <label
+                >Alineación<select id="alignment">
+                  <option value="center">Centrada</option>
+                  <option value="left">Izquierda</option>
+                  <option value="right">Derecha</option>
+                </select></label
+              >
+            </div>
+            <label
+              >Opacidad<input id="opacity" type="range" min="0.2" max="1" step="0.05" value="1"
+            /></label>
+          </fieldset>
+
+          <fieldset class="settings-group">
+            <legend>Seguimiento</legend>
+            <label
+              >Preferencia de karaoke<select id="karaoke-mode">
+                <option value="line">Por línea</option>
+                <option value="word">Por palabra</option>
+              </select></label
+            >
+            <p id="settings-karaoke-status" class="help" role="status">Resaltado por línea.</p>
+            <label
+              >Desfase <output id="offset-value">0 ms</output
+              ><input id="offset" type="range" min="-10000" max="10000" step="100" value="0"
+            /></label>
+            <p class="help">Un valor positivo adelanta la letra.</p>
+          </fieldset>
+
+          <fieldset class="settings-group">
+            <legend>Ventana</legend>
+            <div class="two-column">
+              <label
+                >Nivel de ventana<select id="z-order">
+                  <option value="normal">Normal</option>
+                  <option value="top">Siempre encima</option>
+                  <option value="bottom">Siempre debajo</option>
+                </select></label
+              >
+              <label class="check window-check"
+                ><input id="reduced-motion" type="checkbox" />Reducir movimiento</label
+              >
+            </div>
+            <button id="reset-position" type="button" class="text-button">
+              Recuperar posición
+            </button>
+          </fieldset>
+
+          <fieldset class="settings-group">
+            <legend>Letras e Internet</legend>
+            <label class="check"
+              ><input id="network-allowed" type="checkbox" />Buscar letras en Internet</label
+            >
+            <p class="help">
+              Busca automáticamente en LRCLIB y permite las traducciones que solicites. Se envían
+              metadatos de la pista para buscar; el texto de la letra solo se envía al confirmar una
+              traducción. No necesitas cuenta, correo ni URL.
+            </p>
+            <p id="source-info" class="help">Sin fuente de letras seleccionada.</p>
+          </fieldset>
+
+          <details class="settings-advanced">
+            <summary>Avanzado</summary>
+            <div id="local-lrc-form">
+              <label
+                >Ruta completa del archivo LRC<input
+                  id="local-lrc-path"
+                  type="text"
+                  placeholder="D:\\Letras\\cancion.lrc"
+              /></label>
+              <button class="primary" type="button" id="local-lrc-submit">Cargar LRC local</button>
+              <p class="help">
+                Alternativa al selector de archivos. No necesita Internet ni correo.
+              </p>
+            </div>
+          </details>
+
           <p id="form-error" role="alert" hidden></p>
-          <div class="form-actions">
-            <button id="reset-position" type="button" class="text-button">Recuperar posición</button
-            ><button type="submit" class="primary">Guardar ajustes</button>
+          <div class="form-actions sticky-actions">
+            <button type="submit" class="primary">Guardar ajustes</button>
           </div>
           <button id="quit" type="button" class="text-button danger">Salir de Proyecto Reze</button>
         </form>
       </section>
+
       <section id="candidates-panel" class="panel" hidden aria-label="Elegir letra">
         <header class="panel-header">
           <h2>Elige la versión</h2>
@@ -222,19 +374,16 @@
           <button id="close-correction" class="text-button">Volver</button>
         </header>
         <p class="help">
-          Corrige los datos que llegan de Windows. Solo se usarán para buscar la letra de esta
-          pista.
+          Si es un cover, prueba con quien lo canta. Puedes dejar el artista vacío.
         </p>
         <form id="correction-form">
-          <label>Título de la canción<input id="search-title" required maxlength="512" /></label
-          ><label>Artista o intérprete<input id="search-artist" maxlength="512" /></label>
-          <p class="help">
-            Si no conoces el artista, déjalo vacío. En un cover, prueba primero con quien lo canta.
-          </p>
+          <label>Título<input id="search-title" required maxlength="512" /></label>
+          <label>Artista<input id="search-artist" maxlength="512" /></label>
           <div class="form-actions">
             <button id="reset-search" type="button" class="text-button">
-              Usar datos de Windows</button
-            ><button class="primary" type="submit">Buscar con estos datos</button>
+              Usar datos de Windows
+            </button>
+            <button class="primary" type="submit">Buscar con estos datos</button>
           </div>
         </form>
       </section>
@@ -244,9 +393,8 @@
           <button id="close-translation" class="text-button">Volver</button>
         </header>
         <p class="help">
-          Solo si lo solicitas, se enviará el texto de esta letra a MyMemory para traducirlo. El
-          servicio gratuito tiene límites de uso. La traducción puede contener errores; se conservan
-          el original y sus tiempos.
+          Se enviará esta letra a MyMemory para traducirla. El servicio tiene límites de uso y la
+          traducción puede contener errores.
         </p>
         <label
           >Idioma original<select id="translation-language">
@@ -266,7 +414,7 @@
         <p class="help">
           El idioma detectado es una sugerencia. Corrígelo si no coincide con la letra.
         </p>
-        <button id="confirm-translation" class="primary">Enviar a MyMemory y traducir</button>
+        <button id="confirm-translation" class="primary">Enviar y traducir</button>
       </section>
     </main>
     <script type="module" src="/src/main.ts"></script>

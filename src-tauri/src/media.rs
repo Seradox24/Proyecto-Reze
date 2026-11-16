@@ -1,5 +1,7 @@
 use base64::Engine;
-use proyecto_reze_core::model::{MediaSample, MediaSource, Session, Timeline, Track};
+use proyecto_reze_core::model::{
+    MediaSample, MediaSource, PlaybackAction, PlaybackControls, Session, Timeline, Track,
+};
 use std::sync::{Arc, mpsc::SyncSender};
 use windows::{Foundation::TypedEventHandler, Media::Control::*, Storage::Streams::DataReader};
 
@@ -15,6 +17,83 @@ pub struct Gsmtc {
     artwork: Option<Arc<str>>,
 }
 impl Gsmtc {
+    /// Start the request on the WinRT owner thread; await it outside the sampler
+    /// so an unresponsive player cannot stop the lyrics clock or block the UI.
+    pub fn control(
+        &self,
+        id: &str,
+        action: PlaybackAction,
+    ) -> Result<impl std::future::Future<Output = Result<(), String>> + Send + 'static, String>
+    {
+        let session = self
+            .sessions
+            .iter()
+            .find(|(key, _)| key == id)
+            .map(|(_, session)| session)
+            .ok_or("La sesión elegida ya no está disponible.")?;
+        let attempt = (|| -> windows::core::Result<_> {
+            if !self
+                .manager
+                .GetSessions()?
+                .into_iter()
+                .any(|current| &current == session)
+            {
+                return Err(windows::core::Error::from(windows::core::HRESULT(
+                    0x8000000e_u32 as i32,
+                )));
+            }
+            let info = session.GetPlaybackInfo()?;
+            let controls = info.Controls()?;
+            let toggle = controls.IsPlayPauseToggleEnabled().unwrap_or(false);
+            let playing = info.PlaybackStatus()?
+                == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing;
+            let operation = match action {
+                PlaybackAction::Play if controls.IsPlayEnabled().unwrap_or(false) || toggle => {
+                    if playing {
+                        None
+                    } else if controls.IsPlayEnabled().unwrap_or(false) {
+                        Some(session.TryPlayAsync()?)
+                    } else {
+                        Some(session.TryTogglePlayPauseAsync()?)
+                    }
+                }
+                PlaybackAction::Pause if controls.IsPauseEnabled().unwrap_or(false) || toggle => {
+                    if !playing {
+                        None
+                    } else if controls.IsPauseEnabled().unwrap_or(false) {
+                        Some(session.TryPauseAsync()?)
+                    } else {
+                        Some(session.TryTogglePlayPauseAsync()?)
+                    }
+                }
+                PlaybackAction::Previous if controls.IsPreviousEnabled().unwrap_or(false) => {
+                    Some(session.TrySkipPreviousAsync()?)
+                }
+                PlaybackAction::Next if controls.IsNextEnabled().unwrap_or(false) => {
+                    Some(session.TrySkipNextAsync()?)
+                }
+                _ => {
+                    return Err(windows::core::Error::from(windows::core::HRESULT(
+                        0x80004001_u32 as i32,
+                    )));
+                }
+            };
+            Ok(operation)
+        })();
+        let operation = attempt
+            .map_err(|_| "La sesión ya no está disponible o no admite este control.".to_string())?;
+        Ok(async move {
+            if let Some(operation) = operation {
+                let accepted = operation
+                    .await
+                    .map_err(|_| "Windows no pudo enviar la orden al reproductor.".to_string())?;
+                if !accepted {
+                    return Err("El reproductor no aceptó la orden. Comprueba su estado e inténtalo de nuevo.".into());
+                }
+            }
+            Ok(())
+        })
+    }
     pub fn new(wake: SyncSender<()>) -> windows::core::Result<Self> {
         let manager = GlobalSystemMediaTransportControlsSessionManager::RequestAsync()?.join()?;
         let tx = wake.clone();
@@ -127,6 +206,19 @@ impl Gsmtc {
         };
         let properties = session.TryGetMediaPropertiesAsync()?.join()?;
         let playback = session.GetPlaybackInfo()?;
+        let playback_controls = playback
+            .Controls()
+            .ok()
+            .map(|controls| {
+                let toggle = controls.IsPlayPauseToggleEnabled().unwrap_or(false);
+                PlaybackControls {
+                    play: controls.IsPlayEnabled().unwrap_or(false) || toggle,
+                    pause: controls.IsPauseEnabled().unwrap_or(false) || toggle,
+                    previous: controls.IsPreviousEnabled().unwrap_or(false),
+                    next: controls.IsNextEnabled().unwrap_or(false),
+                }
+            })
+            .unwrap_or_default();
         let playing = playback.PlaybackStatus()?
             == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing;
         let rate = playback
@@ -213,6 +305,7 @@ impl Gsmtc {
             self.last_track = Some(track.clone());
         }
         Ok(MediaSample {
+            playback_controls,
             sessions: listing,
             track: Some(track),
             timeline,

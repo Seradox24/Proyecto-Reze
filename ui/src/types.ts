@@ -1,5 +1,19 @@
-export const THEMES = ['classic', 'mochi_cat'] as const;
-export type ThemeId = (typeof THEMES)[number];
+export const THEME_IDS = [
+  'classic_cat',
+  'window_cat',
+  'cat_notebook',
+  'cat_constellation',
+  'mochi_cat',
+] as const;
+export type ThemeId = (typeof THEME_IDS)[number];
+export type LyricsBackdrop = 'dark' | 'light';
+export type PlaybackAction = 'play' | 'pause' | 'previous' | 'next';
+export interface PlaybackControls {
+  play: boolean;
+  pause: boolean;
+  previous: boolean;
+  next: boolean;
+}
 export interface Settings {
   karaoke_mode?: 'line' | 'word';
   schema_version: number;
@@ -8,11 +22,12 @@ export interface Settings {
   font_size: number;
   opacity: number;
   alignment: 'left' | 'center' | 'right';
-  /** Missing in settings saved before skins existed. */
-  theme_id?: ThemeId;
   reduced_motion: boolean;
   z_order: 'top' | 'normal' | 'bottom';
   view_mode: 'compact' | 'lyrics_only';
+  theme_id: ThemeId;
+  cat_animation_enabled: boolean;
+  lyrics_backdrop: LyricsBackdrop;
   x: number | null;
   y: number | null;
   width: number;
@@ -37,6 +52,7 @@ export type LyricsStatus = 'missing' | 'loading' | 'ready' | 'error';
 export type TranslationStatus = 'idle' | 'loading' | 'ready' | 'error';
 /** Everything except the artwork bytes and the lyrics of each alternative. */
 export interface Snapshot {
+  playback_controls?: PlaybackControls;
   position_sequence?: number;
   search_override?: Track | null;
   selected_candidate_id?: number | null;
@@ -90,4 +106,31 @@ export interface PositionTick {
   active_line: number | null;
   playing: boolean;
   timing_reliable: boolean;
+}
+
+export const DEFAULT_SETTINGS: Settings = {
+  schema_version: 1,
+  network_allowed: true,
+  offset_ms: 0,
+  font_size: 23,
+  opacity: 1,
+  alignment: 'center',
+  reduced_motion: false,
+  z_order: 'normal',
+  view_mode: 'compact',
+  theme_id: 'classic_cat',
+  cat_animation_enabled: true,
+  lyrics_backdrop: 'dark',
+  x: null,
+  y: null,
+  width: 420,
+  height: 260,
+};
+
+export function normalizeThemeId(value: unknown): ThemeId {
+  return THEME_IDS.includes(value as ThemeId) ? (value as ThemeId) : 'classic_cat';
+}
+
+export function normalizeLyricsBackdrop(value: unknown): LyricsBackdrop {
+  return value === 'light' || value === 'dark' ? value : 'dark';
 }

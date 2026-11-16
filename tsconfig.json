@@ -6,7 +6,9 @@
     "strict": true,
     "noEmit": true,
     "lib": ["ES2022", "DOM"],
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "types": ["vite/client"]
   },
   "include": ["ui/src/**/*.ts"]
 }

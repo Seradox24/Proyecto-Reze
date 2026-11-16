@@ -1,4 +1,11 @@
 import type { Snapshot } from './types';
+export function readingText(lyrics: Snapshot['lyrics']): string {
+  if (!lyrics) return '';
+  // A timed document's plain field can still contain raw LRC timestamps.
+  // Parsed lines are safe to display when Windows timing becomes unavailable.
+  if (lyrics.format === 'line_synced') return lyrics.lines.map((line) => line.text).join('\n');
+  return lyrics.plain_text;
+}
 export function readingStatus(
   state: Snapshot,
   lyrics: Snapshot['lyrics'],

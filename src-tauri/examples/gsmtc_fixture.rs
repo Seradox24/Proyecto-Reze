@@ -1,14 +1,16 @@
 //! Publishes only synthetic metadata/timing. No music service, network or audio.
-//! Commands on stdin: play, pause, seek <ms>, track <title>, quit.
+//! Commands on stdin: play, pause, next, previous, seek <ms>, track <title>, quit.
 use std::{
     io::{self, BufRead},
     sync::mpsc,
     time::{Duration, Instant},
 };
 use windows::{
-    Foundation::TimeSpan,
+    Foundation::{TimeSpan, TypedEventHandler},
     Media::{
         MediaPlaybackStatus, MediaPlaybackType, Playback::MediaPlayer,
+        SystemMediaTransportControls, SystemMediaTransportControlsButton,
+        SystemMediaTransportControlsButtonPressedEventArgs,
         SystemMediaTransportControlsTimelineProperties,
     },
     core::HSTRING,
@@ -26,6 +28,8 @@ fn main() -> windows::core::Result<()> {
     controls.SetIsEnabled(true)?;
     controls.SetIsPlayEnabled(true)?;
     controls.SetIsPauseEnabled(true)?;
+    controls.SetIsNextEnabled(true)?;
+    controls.SetIsPreviousEnabled(false)?;
     controls.SetPlaybackStatus(MediaPlaybackStatus::Playing)?;
     let updater = controls.DisplayUpdater()?;
     updater.SetType(MediaPlaybackType::Music)?;
@@ -40,14 +44,35 @@ fn main() -> windows::core::Result<()> {
         .SetAlbumTitle(&HSTRING::from("Pruebas locales"))?;
     updater.Update()?;
     let (tx, rx) = mpsc::channel();
+    let button_tx = tx.clone();
+    let button_token = controls.ButtonPressed(&TypedEventHandler::<
+        SystemMediaTransportControls,
+        SystemMediaTransportControlsButtonPressedEventArgs,
+    >::new(move |_, args| {
+        if let Some(args) = args.as_ref() {
+            let command = match args.Button()? {
+                SystemMediaTransportControlsButton::Play => Some("play"),
+                SystemMediaTransportControlsButton::Pause => Some("pause"),
+                SystemMediaTransportControlsButton::Next => Some("next"),
+                SystemMediaTransportControlsButton::Previous => Some("previous"),
+                _ => None,
+            };
+            if let Some(command) = command {
+                let _ = button_tx.send(command.to_owned());
+            }
+        }
+        Ok(())
+    }))?;
     std::thread::spawn(move || {
         for line in io::stdin().lock().lines().map_while(Result::ok) {
             if tx.send(line).is_err() {
                 break;
             }
         }
+        let _ = tx.send("quit".into());
     });
     let mut position = 0i64;
+    let mut track_index = 0u32;
     let mut playing = true;
     let mut anchor = Instant::now();
     println!("Fixture GSMTC: play | pause | seek <ms> | track <title> | quit");
@@ -83,6 +108,23 @@ fn main() -> windows::core::Result<()> {
                     position = 0;
                     anchor = Instant::now();
                 }
+                if command == "next" || command == "previous" {
+                    track_index = if command == "next" {
+                        track_index.saturating_add(1)
+                    } else {
+                        track_index.saturating_sub(1)
+                    };
+                    let title = if track_index == 0 {
+                        "Proyecto Reze — prueba propia".to_string()
+                    } else {
+                        format!("Proyecto Reze — prueba propia {}", track_index + 1)
+                    };
+                    updater.MusicProperties()?.SetTitle(&HSTRING::from(title))?;
+                    updater.Update()?;
+                    controls.SetIsPreviousEnabled(track_index > 0)?;
+                    position = 0;
+                    anchor = Instant::now();
+                }
             }
             Err(mpsc::RecvTimeoutError::Disconnected) => break,
             Err(mpsc::RecvTimeoutError::Timeout) => {}
@@ -101,6 +143,7 @@ fn main() -> windows::core::Result<()> {
         })?;
         controls.UpdateTimelineProperties(&timeline)?;
     }
+    controls.RemoveButtonPressed(button_token)?;
     controls.SetIsEnabled(false)?;
     drop(player);
     unsafe {
