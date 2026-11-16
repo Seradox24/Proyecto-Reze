@@ -14,7 +14,11 @@ use tauri::{Manager, State};
 
 #[tauri::command]
 fn get_state(state: State<'_, Shared>) -> proyecto_reze_core::model::Snapshot {
-    state.guard().snapshot.clone()
+    // The worker only refreshes the position when something visible changes, so bring it
+    // up to date here: a caller always gets the position of this instant.
+    let mut guard = state.guard();
+    guard.update_position(std::time::Instant::now());
+    guard.snapshot.clone()
 }
 
 /// The artwork travels apart from the snapshot: the interface asks for it only when

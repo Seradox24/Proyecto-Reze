@@ -504,6 +504,9 @@ pub fn start(app: tauri::AppHandle, shared: Shared, rx: Receiver<()>) {
         let mut media = None;
         let mut next_sample = Instant::now();
         let mut last_progress_second = 0;
+        // What the interface was last told, so a line change is reported exactly once
+        // whichever path noticed it first.
+        let mut last_line = None;
         let mut timeout = Duration::ZERO;
         loop {
             // Sleeps until Windows reports a change, the next sample is due or the next line
@@ -554,12 +557,12 @@ pub fn start(app: tauri::AppHandle, shared: Shared, rx: Receiver<()>) {
             let mut wait = None;
             if visible {
                 let mut state = shared.guard();
-                let previous_line = state.snapshot.active_line;
                 let now = Instant::now();
                 state.update_position(now);
                 let position = state.snapshot.position_ms;
-                let changed = previous_line != state.snapshot.active_line
+                let changed = last_line != state.snapshot.active_line
                     || position / 1000 != last_progress_second;
+                last_line = state.snapshot.active_line;
                 last_progress_second = position / 1000;
                 // Only a tiny clock payload; never copy lyrics or query HTTP per frame.
                 let tick = (changed || state.word_highlight()).then(|| state.tick());
