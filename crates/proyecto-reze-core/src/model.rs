@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct Track {
@@ -31,7 +32,8 @@ pub struct MediaSample {
     pub sessions: Vec<Session>,
     pub track: Option<Track>,
     pub timeline: Timeline,
-    pub artwork: Option<String>,
+    /// Data URL. Shared so repeated samples of the same track never copy the image.
+    pub artwork: Option<Arc<str>>,
     pub error: Option<String>,
 }
 
@@ -76,6 +78,40 @@ pub struct LyricsDocument {
     pub rights_metadata: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum LyricsStatus {
+    #[default]
+    Missing,
+    Loading,
+    Ready,
+    Error,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TranslationStatus {
+    #[default]
+    Idle,
+    Loading,
+    Ready,
+    Error,
+}
+
+/// Small clock payload published between full snapshots.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct PositionTick {
+    pub generation: u64,
+    pub lyrics_revision: u64,
+    pub sequence: u64,
+    pub position_ms: u64,
+    pub active_line: Option<usize>,
+    pub playing: bool,
+    pub timing_reliable: bool,
+}
+
+/// State published to the interface. It deliberately excludes the artwork bytes and the
+/// lyrics of every alternative: the interface asks for the artwork when its revision changes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Snapshot {
     pub position_sequence: u64,
@@ -85,7 +121,7 @@ pub struct Snapshot {
     pub sync_confirmed: bool,
     pub selection_notice: Option<String>,
     pub translation: Option<LyricsDocument>,
-    pub translation_status: String,
+    pub translation_status: TranslationStatus,
     pub language: Option<String>,
     pub revision: u64,
     pub generation: u64,
@@ -95,11 +131,12 @@ pub struct Snapshot {
     pub playing: bool,
     pub position_ms: u64,
     pub timing_reliable: bool,
-    pub artwork: Option<String>,
+    pub artwork_revision: u64,
+    pub has_artwork: bool,
     pub lyrics: Option<LyricsDocument>,
     pub active_line: Option<usize>,
-    pub lyrics_status: String,
-    pub candidates: Vec<crate::lyrics::Candidate>,
+    pub lyrics_status: LyricsStatus,
+    pub candidates: Vec<crate::lyrics::CandidateSummary>,
     pub error: Option<String>,
     pub settings: crate::settings::Settings,
 }

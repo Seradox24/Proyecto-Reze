@@ -50,7 +50,8 @@ recuperar la posición, abrir ajustes o salir. Si falla la bandeja, cerrar termi
 la aplicación y ocultar permanece bloqueado para evitar perder el control.
 
 Las preferencias se guardan en `%APPDATA%\app.proyectoreze.widget\settings.json`. Las
-letras y selecciones de sesión solo permanecen en memoria. No hay historial de
+letras y selecciones de sesión solo permanecen en memoria: los resultados de las
+últimas búsquedas se reutilizan hasta cerrar la aplicación. No hay historial de
 escucha ni caché de letras en disco. Una importación local tiene prioridad hasta
 cambiar de pista. Si no hay posición fiable, la letra se presenta en modo lectura.
 
@@ -95,15 +96,22 @@ probar el efecto. No se reproduce ni descarga audio.
 ## Ejecutar comprobaciones
 
 ```powershell
+npm run format:check
+npm run lint
+npm run build
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
-npm run build
 npm test
 npx playwright test
 ```
 
-Playwright utiliza Microsoft Edge instalado. No consulta servicios musicales ni
+`npm run format` aplica Prettier a la interfaz, las pruebas y los scripts. Las mismas
+comprobaciones se ejecutan en GitHub Actions (`.github/workflows/ci.yml`) sobre
+`windows-latest` en cada pull request y en cada cambio de `main`.
+
+Playwright utiliza Microsoft Edge instalado; fuera de Windows, la variable
+`PLAYWRIGHT_CHROMIUM` puede apuntar a un Chromium para ejecutar la misma suite. No consulta servicios musicales ni
 LRCLIB: los casos HTTP usan un servidor local simulado. Para una sesión GSMTC
 propia de prueba consulta [fixtures/README.md](fixtures/README.md).
 

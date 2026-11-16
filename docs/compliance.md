@@ -27,6 +27,5 @@ Referencias de implementación:
 - [Spotify Developer Policy](https://developer.spotify.com/policy)
 - [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)
 
-Fuera de esta entrega: reproducción/descarga de audio, tiempos por palabra,
-extensión de navegador, click-through, arranque con Windows, instalador firmado,
+Fuera de esta entrega: reproducción/descarga de audio, extensión de navegador, click-through, arranque con Windows, instalador firmado,
 actualizaciones automáticas y caché persistente de letras.

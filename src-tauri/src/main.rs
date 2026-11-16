@@ -4,13 +4,31 @@ mod engine;
 mod media;
 mod window;
 
-use engine::{Shared, emit, search};
-use proyecto_reze_core::{lrc, settings::Settings};
+use engine::{Shared, SharedExt, emit, search};
+use proyecto_reze_core::{
+    lrc,
+    model::{LyricsStatus, TranslationStatus},
+    settings::Settings,
+};
 use tauri::{Manager, State};
 
 #[tauri::command]
 fn get_state(state: State<'_, Shared>) -> proyecto_reze_core::model::Snapshot {
-    state.lock().unwrap().snapshot.clone()
+    // The worker only refreshes the position when something visible changes, so bring it
+    // up to date here: a caller always gets the position of this instant.
+    let mut guard = state.guard();
+    guard.update_position(std::time::Instant::now());
+    guard.snapshot.clone()
+}
+
+/// The artwork travels apart from the snapshot: the interface asks for it only when
+/// `artwork_revision` changes, instead of receiving the image with every update.
+#[tauri::command]
+fn get_artwork(state: State<'_, Shared>, revision: u64) -> Option<String> {
+    let guard = state.guard();
+    (guard.snapshot.artwork_revision == revision)
+        .then(|| guard.artwork.as_deref().map(str::to_owned))
+        .flatten()
 }
 
 #[tauri::command]
@@ -19,7 +37,7 @@ fn select_session(
     state: State<'_, Shared>,
     id: Option<String>,
 ) -> Result<(), String> {
-    let mut guard = state.lock().unwrap();
+    let mut guard = state.guard();
     if id
         .as_ref()
         .is_some_and(|id| !guard.snapshot.sessions.iter().any(|s| &s.id == id))
@@ -37,7 +55,7 @@ fn select_session(
 async fn import_lrc(app: tauri::AppHandle, state: State<'_, Shared>) -> Result<(), String> {
     let shared = state.inner().clone();
     let generation = {
-        let guard = shared.lock().unwrap();
+        let guard = shared.guard();
         if guard.snapshot.track.is_none() {
             return Err("Selecciona primero una sesión con una pista.".into());
         }
@@ -76,7 +94,7 @@ async fn import_lrc_path(
     }
     let shared = state.inner().clone();
     let generation = {
-        let guard = shared.lock().unwrap();
+        let guard = shared.guard();
         if guard.snapshot.track.is_none() {
             return Err("Selecciona primero una sesión con una pista.".into());
         }
@@ -112,14 +130,14 @@ async fn load_local_lrc(
     })
     .await
     .map_err(|e| e.to_string())??;
-    let mut guard = shared.lock().unwrap();
+    let mut guard = shared.guard();
     if generation != guard.snapshot.generation {
         return Err("La pista cambió durante la importación. Vuelve a cargar el LRC.".into());
     }
     guard.cancel_search();
     guard.local_override = true;
     guard.install_lyrics(document, None, true);
-    guard.snapshot.candidates.clear();
+    guard.set_candidates(vec![]);
     emit(&app, &mut guard);
     Ok(())
 }
@@ -136,13 +154,12 @@ fn choose_candidate(
     id: i64,
     generation: u64,
 ) -> Result<(), String> {
-    let mut guard = state.lock().unwrap();
+    let mut guard = state.guard();
     if guard.snapshot.generation != generation || guard.local_override {
         return Err("El resultado pertenece a otra pista o hay un LRC local activo.".into());
     }
     // Search responses already contain the lyrics. Reuse them without another request.
     let document = guard
-        .snapshot
         .candidates
         .iter()
         .find(|c| c.id == id)
@@ -163,7 +180,7 @@ fn update_settings(
     mut settings: Settings,
 ) -> Result<(), String> {
     settings.validate()?;
-    let old = state.lock().unwrap().snapshot.settings.clone();
+    let old = state.guard().snapshot.settings.clone();
     // Geometry is owned by the native window event handler, not stale UI forms.
     settings.x = old.x;
     settings.y = old.y;
@@ -176,7 +193,7 @@ fn update_settings(
         None
     };
     window::apply(&app, &settings)?;
-    let mut guard = state.lock().unwrap();
+    let mut guard = state.guard();
     settings.x = guard.snapshot.settings.x;
     settings.y = guard.snapshot.settings.y;
     settings.width = guard.snapshot.settings.width;
@@ -187,12 +204,13 @@ fn update_settings(
         return Err(error);
     }
     guard.snapshot.settings = settings;
+    guard.geometry_saved();
     if network_changed {
         guard.cancel_search();
         guard.cancel_translation();
         guard.provider = provider;
-        if guard.snapshot.lyrics_status == "loading" {
-            guard.snapshot.lyrics_status = "missing".into();
+        if guard.snapshot.lyrics_status == LyricsStatus::Loading {
+            guard.snapshot.lyrics_status = LyricsStatus::Missing;
         }
     }
     emit(&app, &mut guard);
@@ -212,7 +230,7 @@ fn correct_search(
     generation: u64,
     reset: bool,
 ) -> Result<(), String> {
-    let mut guard = state.lock().unwrap();
+    let mut guard = state.guard();
     if !guard.snapshot.settings.network_allowed {
         return Err("Activa la búsqueda en Internet antes de corregir la consulta.".into());
     }
@@ -238,7 +256,7 @@ fn correct_search(
         })
     };
     guard.snapshot.lyrics = None;
-    guard.snapshot.candidates.clear();
+    guard.set_candidates(vec![]);
     guard.snapshot.active_line = None;
     guard.snapshot.selection_notice = None;
     guard.snapshot.selected_candidate_id = None;
@@ -256,7 +274,7 @@ fn translate_lyrics(
     lyrics_revision: u64,
 ) -> Result<(), String> {
     let shared = state.inner().clone();
-    let mut guard = shared.lock().unwrap();
+    let mut guard = shared.guard();
     if !guard.snapshot.settings.network_allowed {
         return Err("Activa el acceso a Internet en ajustes para traducir.".into());
     }
@@ -279,13 +297,13 @@ fn translate_lyrics(
     let translator = proyecto_reze_core::translation::Translator::new()?;
     guard.cancel_translation();
     let request = guard.translation_request;
-    guard.snapshot.translation_status = "loading".into();
+    guard.snapshot.translation_status = TranslationStatus::Loading;
     guard.snapshot.error = None;
     emit(&app, &mut guard);
     let task_shared = shared.clone();
     guard.translation_task = Some(tauri::async_runtime::spawn(async move {
         let result = translator.translate(&original, &source).await;
-        let mut guard = task_shared.lock().unwrap();
+        let mut guard = task_shared.guard();
         if guard.translation_request != request
             || guard.snapshot.generation != generation
             || guard.snapshot.lyrics_revision != lyrics_revision
@@ -296,10 +314,10 @@ fn translate_lyrics(
         match result {
             Ok(document) => {
                 guard.snapshot.translation = Some(document);
-                guard.snapshot.translation_status = "ready".into();
+                guard.snapshot.translation_status = TranslationStatus::Ready;
             }
             Err(error) => {
-                guard.snapshot.translation_status = "error".into();
+                guard.snapshot.translation_status = TranslationStatus::Error;
                 guard.snapshot.error = Some(error);
             }
         }
@@ -310,7 +328,7 @@ fn translate_lyrics(
 
 #[tauri::command]
 fn cancel_translation(app: tauri::AppHandle, state: State<'_, Shared>) {
-    let mut guard = state.lock().unwrap();
+    let mut guard = state.guard();
     guard.cancel_translation();
     emit(&app, &mut guard);
 }
@@ -320,21 +338,23 @@ fn reset_window(app: tauri::AppHandle, state: State<'_, Shared>) -> Result<(), S
     let settings = Settings {
         x: None,
         y: None,
-        ..state.lock().unwrap().snapshot.settings.clone()
+        ..state.guard().snapshot.settings.clone()
     };
     window::restore(&app, &settings)?;
-    let mut guard = state.lock().unwrap();
+    let mut guard = state.guard();
     guard.snapshot.settings.x = None;
     guard.snapshot.settings.y = None;
-    proyecto_reze_core::settings::save(&guard.settings_path, &guard.snapshot.settings)
+    proyecto_reze_core::settings::save(&guard.settings_path, &guard.snapshot.settings)?;
+    guard.geometry_saved();
+    Ok(())
 }
 #[tauri::command]
 fn hide_window(app: tauri::AppHandle, state: State<'_, Shared>) -> Result<(), String> {
-    if !state.lock().unwrap().tray_available {
+    if !state.guard().tray_available {
         return Err("La bandeja no está disponible; usa Cerrar para salir.".into());
     }
     app.get_webview_window("main")
-        .unwrap()
+        .ok_or("Falta la ventana principal.")?
         .hide()
         .map_err(|e| e.to_string())
 }
@@ -353,6 +373,7 @@ fn main() {
         }))
         .invoke_handler(tauri::generate_handler![
             get_state,
+            get_artwork,
             select_session,
             import_lrc,
             import_lrc_path,
@@ -380,7 +401,7 @@ fn main() {
             window::restore(app.handle(), &settings).map_err(std::io::Error::other)?;
             window::apply(app.handle(), &settings).map_err(std::io::Error::other)?;
             let tray = window::tray(app.handle());
-            state.lock().unwrap().tray_available = tray.is_ok();
+            state.guard().tray_available = tray.is_ok();
             if let Err(error) = tray {
                 tracing::warn!(%error, "Bandeja no disponible");
             }
@@ -389,6 +410,14 @@ fn main() {
             Ok(())
         })
         .on_window_event(window::event)
-        .run(tauri::generate_context!())
-        .expect("No se pudo iniciar Proyecto Reze");
+        .build(tauri::generate_context!())
+        .expect("No se pudo iniciar Proyecto Reze")
+        .run(|app, event| {
+            // A move made just before quitting is still waiting for its debounced save.
+            if let tauri::RunEvent::Exit = event
+                && let Some(state) = app.try_state::<Shared>()
+            {
+                state.guard().flush_geometry();
+            }
+        });
 }

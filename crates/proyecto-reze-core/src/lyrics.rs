@@ -36,6 +36,31 @@ pub struct Candidate {
     #[serde(default)]
     pub match_note: Option<String>,
 }
+/// What the interface needs to list an alternative, without its lyrics.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CandidateSummary {
+    pub id: i64,
+    pub track_name: String,
+    pub artist_name: String,
+    pub album_name: String,
+    pub duration: f64,
+    pub instrumental: bool,
+    pub match_note: Option<String>,
+}
+impl From<&Candidate> for CandidateSummary {
+    fn from(candidate: &Candidate) -> Self {
+        Self {
+            id: candidate.id,
+            track_name: candidate.track_name.clone(),
+            artist_name: candidate.artist_name.clone(),
+            album_name: candidate.album_name.clone(),
+            duration: candidate.duration,
+            instrumental: candidate.instrumental,
+            match_note: candidate.match_note.clone(),
+        }
+    }
+}
 impl Candidate {
     pub fn document(&self) -> Result<LyricsDocument, String> {
         let mut file_warning = None;
@@ -83,6 +108,32 @@ impl Candidate {
             doc.warnings.push(warning);
         }
         Ok(doc)
+    }
+}
+/// Results kept in memory for this run only, so returning to a recent track does not
+/// repeat its queries. Nothing is written to disk.
+#[derive(Debug, Default)]
+pub struct SearchCache {
+    entries: std::collections::VecDeque<(Track, Vec<Candidate>)>,
+}
+impl SearchCache {
+    pub const CAPACITY: usize = 16;
+    pub fn get(&self, track: &Track) -> Option<Vec<Candidate>> {
+        self.entries
+            .iter()
+            .find(|(key, _)| key == track)
+            .map(|(_, candidates)| candidates.clone())
+    }
+    /// Empty results are not remembered: a later search may find newly published lyrics.
+    pub fn insert(&mut self, track: &Track, candidates: &[Candidate]) {
+        if candidates.is_empty() {
+            return;
+        }
+        self.entries.retain(|(key, _)| key != track);
+        if self.entries.len() == Self::CAPACITY {
+            self.entries.pop_front();
+        }
+        self.entries.push_back((track.clone(), candidates.to_vec()));
     }
 }
 pub use crate::matching::automatic_match;
@@ -307,6 +358,24 @@ mod tests {
     }
     fn record() -> serde_json::Value {
         serde_json::json!({"id":1,"trackName":"Propia","artistName":"Autor","duration":10,"plainLyrics":"Texto propio"})
+    }
+    #[test]
+    fn search_cache_is_bounded_keyed_by_track_and_skips_empty_results() {
+        let candidate: Candidate = serde_json::from_value(record()).unwrap();
+        let mut cache = SearchCache::default();
+        cache.insert(&track(), &[]);
+        assert!(cache.get(&track()).is_none());
+        cache.insert(&track(), std::slice::from_ref(&candidate));
+        assert_eq!(cache.get(&track()).unwrap()[0].id, 1);
+        let mut other = track();
+        other.duration_ms = Some(20_000);
+        assert!(cache.get(&other).is_none());
+        for index in 0..SearchCache::CAPACITY {
+            other.title = format!("Otra {index}");
+            cache.insert(&other, std::slice::from_ref(&candidate));
+        }
+        assert!(cache.get(&track()).is_none());
+        assert!(cache.get(&other).is_some());
     }
     #[tokio::test]
     async fn lrclib_word_payload_is_used_even_when_legacy_fields_are_absent() {

@@ -1,3 +1,4 @@
+use crate::engine::{Shared, SharedExt};
 use proyecto_reze_core::settings::{Settings, ViewMode, ZOrder};
 use tauri::{
     Emitter, Manager,
@@ -9,6 +10,10 @@ pub fn show(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
         let _ = window.set_focus();
+    }
+    // The worker sleeps for seconds while hidden; refresh as soon as the widget is back.
+    if let Some(state) = app.try_state::<Shared>() {
+        let _ = state.guard().wake.try_send(());
     }
 }
 pub fn apply(app: &tauri::AppHandle, settings: &Settings) -> Result<(), String> {
@@ -116,8 +121,8 @@ pub fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
                 let _ = app.emit("proyecto-reze:settings", ());
             }
             "reset" => {
-                let state = app.state::<crate::engine::Shared>();
-                let settings = state.lock().unwrap().snapshot.settings.clone();
+                let state = app.state::<Shared>();
+                let settings = state.guard().snapshot.settings.clone();
                 let _ = restore(
                     app,
                     &Settings {
@@ -135,12 +140,12 @@ pub fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 pub fn event(window: &tauri::Window, event: &tauri::WindowEvent) {
-    let Some(state) = window.app_handle().try_state::<crate::engine::Shared>() else {
+    let Some(state) = window.app_handle().try_state::<Shared>() else {
         return;
     };
     match event {
         tauri::WindowEvent::CloseRequested { api, .. } => {
-            if state.lock().unwrap().tray_available {
+            if state.guard().tray_available {
                 api.prevent_close();
                 let _ = window.hide();
             }
@@ -158,15 +163,16 @@ pub fn event(window: &tauri::Window, event: &tauri::WindowEvent) {
             ) else {
                 return;
             };
-            let mut state = state.lock().unwrap();
-            state.snapshot.settings.x = Some(position.x);
-            state.snapshot.settings.y = Some(position.y);
-            state.snapshot.settings.width = size.width as f64 / scale;
-            state.snapshot.settings.height = size.height as f64 / scale;
-            if let Err(error) =
-                proyecto_reze_core::settings::save(&state.settings_path, &state.snapshot.settings)
-            {
-                tracing::warn!(%error, "No se pudo guardar geometría");
+            // Dragging reports dozens of positions per second: remember the last one and let
+            // a background task write it once the window settles, never on the UI thread.
+            let schedule = state.guard().geometry_changed(
+                position.x,
+                position.y,
+                size.width as f64 / scale,
+                size.height as f64 / scale,
+            );
+            if schedule {
+                crate::engine::schedule_geometry_save(state.inner().clone());
             }
         }
         _ => {}

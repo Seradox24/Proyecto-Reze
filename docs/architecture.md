@@ -19,15 +19,22 @@ resaltado. No se inventa precisión para fuentes que no entregan tiempo.
 El reloj respeta pausa, velocidad y límites de duración; las nuevas muestras
 reancoran inmediatamente, incluyendo búsquedas hacia atrás.
 
-El cálculo de línea ocurre aproximadamente a 30 Hz mientras la ventana es visible;
-se publican cambios de línea y progreso por segundo. Las consultas de red nunca
-ocurren por fotograma. Cada cambio de sesión/pista invalida la generación anterior,
+El worker no sondea: duerme hasta el siguiente evento de Windows, la siguiente
+muestra de respaldo, el inicio de la siguiente línea o el siguiente segundo, lo que
+ocurra antes. Solo un fragmento con tiempos por palabra lo despierta a unos 30 Hz.
+Oculto, en pausa o sin posición fiable únicamente despierta para muestrear; mostrar
+la ventana lo despierta de inmediato. Las consultas de red nunca ocurren por
+fotograma. Cada cambio de sesión/pista invalida la generación anterior,
 cancela consultas y limpia letra, candidatos y carátula. La importación también
 verifica su generación después de cerrar el diálogo nativo.
 
 ## IPC
 
-- `get_state`: snapshot completo versionado y listado de sesiones.
+- `get_state`: snapshot versionado y listado de sesiones. No contiene la carátula
+  ni las letras de las alternativas: solo `artwork_revision` / `has_artwork` y un
+  resumen de cada candidato.
+- `get_artwork({revision})`: data URL de la carátula si esa revisión sigue vigente.
+  La interfaz la pide una vez por cambio de revisión.
 - `select_session({id})`: selección manual; `null` la libera.
 - `import_lrc`: diálogo nativo restringido a LRC; lectura acotada a 2 MiB + 1.
 - `import_lrc_path({path})`: alternativa visible para una ruta absoluta `.lrc`;
@@ -39,9 +46,14 @@ verifica su generación después de cerrar el diálogo nativo.
 - `translate_lyrics({source,generation,lyricsRevision})` y `cancel_translation`:
   traducción optativa con documentos separados y descarte de respuestas obsoletas.
 - `update_settings({settings})`: valida y persiste preferencias; geometría nativa.
+  Mover o redimensionar actualiza la geometría en memoria y la guarda una sola vez,
+  500 ms después del último cambio y fuera del hilo de la interfaz; al salir se
+  escribe lo pendiente.
 - `reset_window`, `hide_window`, `quit`: ciclo de vida y recuperación.
 - Evento `proyecto-reze:state`: mismo contrato que `get_state`; revisiones anteriores se
-  descartan en la interfaz. Evento `proyecto-reze:settings`: abre el panel desde bandeja.
+  descartan en la interfaz. Solo se publica cuando cambia algo distinto de la posición.
+- Evento `proyecto-reze:position`: posición, línea activa, secuencia y claves de
+  generación/revisión. Lleva el avance por segundo, los cambios de línea y los saltos. Evento `proyecto-reze:settings`: abre el panel desde bandeja.
 
 ## Búsqueda
 
@@ -65,7 +77,11 @@ pero la elección permanece manual.
 El cliente tiene timeout 10 s, dos solicitudes concurrentes y dos reintentos
 transitorios. `429` establece cooldown compartido, respeta `Retry-After` y añade
 jitter. Desactivar la red aborta búsquedas pendientes. Seleccionar candidatos ya
-descargados no vuelve a consultar la API. No hay caché persistente.
+descargados no vuelve a consultar la API. La búsqueda automática espera 400 ms
+tras el cambio de pista, de modo que saltar canciones no consulta cada una, y
+reutiliza los resultados no vacíos de las últimas 16 pistas mientras la aplicación
+siga abierta. La búsqueda manual y la corrección siempre consultan de nuevo.
+No hay caché persistente.
 
 ## Karaoke
 
@@ -82,8 +98,8 @@ línea con palabras inconsistentes conserva su texto y tiempo, sin resaltado por
 palabra. Un YAML incompatible intenta el LRC o texto alternativo del registro.
 No se inventan finales ausentes ni se aplica el offset ambiguo del borrador YAML.
 
-La posición del backend se comunica a 30 Hz por `proyecto-reze:position` cuando hay un
-fragmento por palabra. El paquete solo incluye posición, línea, secuencia y claves
+La posición del backend se comunica a unos 30 Hz por `proyecto-reze:position` cuando
+hay un fragmento por palabra. El paquete solo incluye posición, línea, secuencia y claves
 de generación/revisión; no contiene letras ni provoca consultas HTTP. El frontend
 descarta eventos obsoletos y actualiza spans de texto con progreso calculado desde
 los tiempos originales. Pausas y búsquedas usan el mismo reloj que las líneas.
