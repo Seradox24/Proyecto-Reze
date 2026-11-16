@@ -3,8 +3,8 @@ use proyecto_reze_core::{
     lrc,
     lyrics::{Candidate, CandidateSummary, Lrclib, LyricsProvider, SearchCache, automatic_match},
     model::{
-        LyricFormat, LyricsStatus, MediaSample, MediaSource, PositionTick, Snapshot, Track,
-        TranslationStatus,
+        LyricFormat, LyricsStatus, MediaSample, MediaSource, PlaybackAction, PlaybackControls,
+        PositionTick, Snapshot, Track, TranslationStatus,
     },
     settings::{KaraokeMode, Settings},
 };
@@ -38,7 +38,15 @@ impl SharedExt for Mutex<AppState> {
     }
 }
 
+struct TransportRequest {
+    session_id: String,
+    generation: u64,
+    action: PlaybackAction,
+    reply: tokio::sync::oneshot::Sender<Result<(), String>>,
+}
 pub struct AppState {
+    transport_request: Option<TransportRequest>,
+    transport_busy: bool,
     pub snapshot: Snapshot,
     pub settings_path: PathBuf,
     pub clock: PlaybackClock,
@@ -60,6 +68,23 @@ pub struct AppState {
     geometry_task: bool,
 }
 impl AppState {
+    fn validate_transport(
+        &self,
+        id: &str,
+        generation: u64,
+        action: PlaybackAction,
+    ) -> Result<(), String> {
+        if self.snapshot.selected_session.as_deref() != Some(id) || self.snapshot.track.is_none() {
+            return Err("Selecciona una sesión con una pista disponible.".into());
+        }
+        if self.snapshot.generation != generation {
+            return Err("La pista cambió. Vuelve a pulsar el control.".into());
+        }
+        if !self.snapshot.playback_controls.supports(action) {
+            return Err("La sesión elegida no admite este control.".into());
+        }
+        Ok(())
+    }
     pub fn update_position(&mut self, now: Instant) {
         self.snapshot.position_ms = self.clock.position(now);
         self.snapshot.timing_reliable = self.clock.reliable();
@@ -189,6 +214,7 @@ impl AppState {
         self.snapshot.error = None;
         self.snapshot.lyrics_status = LyricsStatus::Missing;
         self.snapshot.playing = false;
+        self.snapshot.playback_controls = PlaybackControls::default();
         self.snapshot.position_ms = 0;
         self.snapshot.timing_reliable = false;
         self.local_override = false;
@@ -284,7 +310,10 @@ pub fn create(
         None
     };
     Arc::new(Mutex::new(AppState {
+        transport_request: None,
+        transport_busy: false,
         snapshot: Snapshot {
+            playback_controls: PlaybackControls::default(),
             position_sequence: 0,
             search_override: None,
             selected_candidate_id: None,
@@ -459,6 +488,8 @@ fn apply_sample(
     }
     dirty |= state.snapshot.playing != sample.timeline.playing;
     state.snapshot.playing = sample.timeline.playing;
+    dirty |= state.snapshot.playback_controls != sample.playback_controls;
+    state.snapshot.playback_controls = sample.playback_controls;
     state.clock.update(sample.timeline, now);
     dirty |= state.snapshot.timing_reliable != state.clock.reliable();
     if dirty {
@@ -490,6 +521,75 @@ fn track_changed(previous: Option<&Track>, next: Option<&Track>) -> bool {
         }
         _ => true,
     }
+}
+
+pub async fn control_playback(
+    shared: Shared,
+    session_id: String,
+    generation: u64,
+    action: PlaybackAction,
+) -> Result<(), String> {
+    let receive = {
+        let mut state = shared.guard();
+        state.validate_transport(&session_id, generation, action)?;
+        if state.transport_busy {
+            return Err("Espera a que el reproductor responda a la orden anterior.".into());
+        }
+        let (reply, receive) = tokio::sync::oneshot::channel();
+        state.transport_busy = true;
+        state.transport_request = Some(TransportRequest {
+            session_id,
+            generation,
+            action,
+            reply,
+        });
+        let _ = state.wake.try_send(());
+        receive
+    };
+    tokio::time::timeout(Duration::from_secs(6), receive)
+        .await
+        .map_err(|_| {
+            "El reproductor tarda en responder. Comprueba su estado antes de reintentar."
+                .to_string()
+        })?
+        .map_err(|_| "No se pudo completar la orden del reproductor.".to_string())?
+}
+
+fn dispatch_transport(shared: &Shared, media: Option<&crate::media::Gsmtc>) {
+    let request = shared.guard().transport_request.take();
+    let Some(request) = request else {
+        return;
+    };
+    if request.reply.is_closed() {
+        shared.guard().transport_busy = false;
+        return;
+    }
+    let validated =
+        shared
+            .guard()
+            .validate_transport(&request.session_id, request.generation, request.action);
+    let result = validated
+        .and_then(|()| media.ok_or_else(|| "Windows GSMTC no está disponible.".to_string()))
+        .and_then(|source| source.control(&request.session_id, request.action));
+    let shared = shared.clone();
+    tauri::async_runtime::spawn(async move {
+        let result = match result {
+            Ok(operation) => tokio::time::timeout(Duration::from_secs(4), operation)
+                .await
+                .unwrap_or_else(|_| {
+                    Err(
+                        "El reproductor no respondió. Comprueba su estado antes de reintentar."
+                            .into(),
+                    )
+                }),
+            Err(error) => Err(error),
+        };
+        let mut state = shared.guard();
+        state.transport_busy = false;
+        let _ = state.wake.try_send(());
+        drop(state);
+        let _ = request.reply.send(result);
+    });
 }
 
 pub fn start(app: tauri::AppHandle, shared: Shared, rx: Receiver<()>) {
@@ -534,6 +634,7 @@ pub fn start(app: tauri::AppHandle, shared: Shared, rx: Receiver<()>) {
                         }
                     }
                 }
+                dispatch_transport(&shared, media.as_ref());
                 if let Some(source) = media.as_mut() {
                     let selection = shared.guard().snapshot.selected_session.clone();
                     match source.sample(selection.as_deref()) {
@@ -545,7 +646,12 @@ pub fn start(app: tauri::AppHandle, shared: Shared, rx: Receiver<()>) {
                             let was_reliable = state.clock.reliable();
                             state.clock = PlaybackClock::default();
                             state.snapshot.timing_reliable = false;
-                            if was_reliable || state.snapshot.error.as_ref() != Some(&error) {
+                            let controls = PlaybackControls::default();
+                            if was_reliable
+                                || state.snapshot.error.as_ref() != Some(&error)
+                                || state.snapshot.playback_controls != controls
+                            {
+                                state.snapshot.playback_controls = controls;
                                 state.snapshot.error = Some(error);
                                 emit(&app, &mut state);
                             }
@@ -591,6 +697,70 @@ mod tests {
     fn state() -> Shared {
         let (tx, _) = std::sync::mpsc::sync_channel(1);
         create(Settings::default(), PathBuf::from("unused"), None, tx)
+    }
+    #[test]
+    fn transport_requires_the_selected_session_current_generation_and_supported_action() {
+        let (tx, _) = std::sync::mpsc::sync_channel(1);
+        let shared = create(Settings::default(), PathBuf::from("unused"), None, tx);
+        let mut state = shared.guard();
+        state.snapshot.selected_session = Some("selected".into());
+        state.snapshot.track = Some(proyecto_reze_core::model::Track::default());
+        state.snapshot.playback_controls = PlaybackControls {
+            play: true,
+            pause: true,
+            previous: false,
+            next: true,
+        };
+        let generation = state.snapshot.generation;
+        assert!(
+            state
+                .validate_transport("selected", generation, PlaybackAction::Pause)
+                .is_ok()
+        );
+        assert!(
+            state
+                .validate_transport("other", generation, PlaybackAction::Next)
+                .is_err()
+        );
+        assert!(
+            state
+                .validate_transport("selected", generation + 1, PlaybackAction::Next)
+                .is_err()
+        );
+        assert!(
+            state
+                .validate_transport("selected", generation, PlaybackAction::Previous)
+                .is_err()
+        );
+        state.reset_track();
+        assert_eq!(
+            state.snapshot.playback_controls,
+            PlaybackControls::default()
+        );
+        assert!(
+            state
+                .validate_transport("selected", generation, PlaybackAction::Play)
+                .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn transport_refuses_a_second_pending_command() {
+        let (tx, _) = std::sync::mpsc::sync_channel(1);
+        let shared = create(Settings::default(), PathBuf::from("unused"), None, tx);
+        {
+            let mut state = shared.guard();
+            state.snapshot.selected_session = Some("selected".into());
+            state.snapshot.track = Some(proyecto_reze_core::model::Track::default());
+            state.snapshot.playback_controls.next = true;
+            state.transport_busy = true;
+        }
+        assert!(
+            control_playback(shared.clone(), "selected".into(), 0, PlaybackAction::Next)
+                .await
+                .is_err()
+        );
+        assert!(shared.guard().transport_request.is_none());
     }
     #[test]
     fn late_duration_does_not_invalidate_lyrics_but_other_versions_do() {

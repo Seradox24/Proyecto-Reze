@@ -32,6 +32,16 @@ fn get_artwork(state: State<'_, Shared>, revision: u64) -> Option<String> {
 }
 
 #[tauri::command]
+async fn control_playback(
+    state: State<'_, Shared>,
+    session_id: String,
+    generation: u64,
+    action: proyecto_reze_core::model::PlaybackAction,
+) -> Result<(), String> {
+    engine::control_playback(state.inner().clone(), session_id, generation, action).await
+}
+
+#[tauri::command]
 fn select_session(
     app: tauri::AppHandle,
     state: State<'_, Shared>,
@@ -374,6 +384,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_state,
             get_artwork,
+            control_playback,
             select_session,
             import_lrc,
             import_lrc_path,

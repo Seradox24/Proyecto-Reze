@@ -188,3 +188,19 @@ Las 6 pruebas del crate de Tauri solo se ejecutan en Windows y quedan a cargo
 del workflow. No se repitieron los scripts nativos de `scripts/`, que requieren
 el ejecutable, una sesión GSMTC y WebView2: conviene volver a pasarlos en el
 equipo antes de considerar verificado el comportamiento en tiempo real.
+
+## Integración 0.3.0
+
+Se unieron la línea de rendimiento y mantenimiento (0.2.0) y la de temas felinos,
+controles de reproducción y tamaño de letra. La interfaz es la de los temas
+felinos; conserva el contrato de IPC de 0.2.0 (carátula por revisión, candidatos
+resumidos, estados tipados, eventos de posición). Gatito mochi pasa a ser un
+quinto tema con la mascota por sprites compartida.
+
+Comprobado fuera de Windows: formato, ESLint y Clippy sin advertencias en todo el
+workspace (crate de Tauri en cruz para `x86_64-pc-windows-gnu`), 34 pruebas del
+crate core, 13 de Vitest y 27 de Playwright con Chromium. Las pruebas del crate de
+Tauri quedan a cargo del workflow. No se repitieron `scripts/smoke-transport.mjs`
+ni `scripts/smoke-karaoke.mjs`, que requieren el ejecutable y una sesión GSMTC:
+conviene pasarlos en el equipo, porque el envío de órdenes al reproductor ahora
+convive con el worker que duerme entre eventos.

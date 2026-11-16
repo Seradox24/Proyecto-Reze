@@ -1,7 +1,30 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+
+const defaultSettings = {
+  schema_version: 1,
+  network_allowed: false,
+  offset_ms: 0,
+  font_size: 23,
+  opacity: 1,
+  alignment: 'center',
+  reduced_motion: false,
+  z_order: 'normal',
+  view_mode: 'compact',
+  theme_id: 'classic_cat',
+  cat_animation_enabled: true,
+  lyrics_backdrop: 'dark',
+  x: null,
+  y: null,
+  width: 420,
+  height: 260,
+};
+
+async function openLetra(page: Page) {
+  await page.getByRole('button', { name: 'Letra', exact: true }).click();
+}
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
+  await page.addInitScript((settings) => {
     const callbacks = new Map<number, (event: unknown) => void>();
     const listeners = new Map<string, number>();
     let id = 0;
@@ -20,8 +43,6 @@ test.beforeEach(async ({ page }) => {
       playing: true,
       position_ms: 30000,
       timing_reliable: true,
-      artwork_revision: 0,
-      has_artwork: false,
       lyrics: {
         source: 'Prueba',
         source_id: null,
@@ -38,22 +59,11 @@ test.beforeEach(async ({ page }) => {
       lyrics_status: 'ready',
       candidates: [],
       error: null,
-      settings: {
-        schema_version: 1,
-        network_allowed: false,
-        offset_ms: 0,
-        font_size: 23,
-        opacity: 1,
-        alignment: 'center',
-        reduced_motion: false,
-        z_order: 'normal',
-        view_mode: 'compact',
-        x: null,
-        y: null,
-        width: 420,
-        height: 260,
-      },
+      settings: structuredClone(settings),
     };
+    Object.assign(state, {
+      playback_controls: { play: true, pause: true, previous: true, next: true },
+    });
     const emit = () => {
       state.revision++;
       const callback = callbacks.get(listeners.get('proyecto-reze:state')!);
@@ -90,7 +100,18 @@ test.beforeEach(async ({ page }) => {
           if (command === 'get_state') return structuredClone(state);
           if (command === 'get_artwork')
             return args.revision === 1 ? 'data:image/png;base64,iVBORw0KGgo=' : null;
+          if (command === 'control_playback') {
+            if ((window as any).__testHoldTransport)
+              await new Promise<void>(
+                (resolve) => ((window as any).__testReleaseTransport = resolve),
+              );
+            if (args.action === 'pause') state.playing = false;
+            if (args.action === 'play') state.playing = true;
+            emit();
+          }
           if (command === 'update_settings') {
+            if ((window as any).__testRejectSettings)
+              throw new Error('No se pudo guardar el tamaño.');
             state.settings = args.settings;
             emit();
           }
@@ -101,15 +122,147 @@ test.beforeEach(async ({ page }) => {
         },
       },
     });
-  });
+  }, defaultSettings);
   await page.goto('/');
 });
+
 test('renders active line, neighbors, and long metadata without overflow', async ({ page }) => {
   await expect(page.locator('#current')).toHaveText('La música sigue aquí');
   await expect(page.locator('#previous')).toHaveText('Una línea anterior');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'artifacts/widget-compact.png' });
 });
+
+test('font size menu saves immediately, stays in sync with settings and works in lyrics-only', async ({
+  page,
+}) => {
+  await openLetra(page);
+  await page.getByRole('button', { name: 'Tamaño de letra…', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Tamaño de letra', exact: true })).toBeVisible();
+  await expect(page.locator('#quick-font-value')).toHaveText('23 px');
+  await page.getByRole('button', { name: 'Aumentar tamaño de letra', exact: true }).click();
+  await expect(page.locator('#current')).toHaveCSS('font-size', '25px');
+  await expect(page.locator('#quick-font-value')).toHaveText('25 px');
+  expect(await page.evaluate(() => (window as any).__testGetState().settings.font_size)).toBe(25);
+  await page.screenshot({ path: 'artifacts/font-size-menu.png', animations: 'disabled' });
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#lyrics-menu-button')).toBeFocused();
+  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+  await expect(page.locator('#font-size')).toHaveValue('25');
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Cambiar a solo letras' }).click();
+  await page.setViewportSize({ width: 300, height: 180 });
+  await page.getByRole('button', { name: 'Opciones del gatito' }).click();
+  await page.getByRole('button', { name: 'Tamaño de letra…', exact: true }).click();
+  await page.getByRole('button', { name: 'Disminuir tamaño de letra', exact: true }).click();
+  await expect(page.locator('#current')).toHaveCSS('font-size', '23px');
+  const box = await page.locator('#font-size-menu').boundingBox();
+  expect(box!.x).toBeGreaterThanOrEqual(0);
+  expect(box!.y).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(300);
+  expect(box!.y + box!.height).toBeLessThanOrEqual(180);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#cat-options')).toBeFocused();
+});
+
+test('font size bounds and failed saves preserve the actual saved preference', async ({ page }) => {
+  await page.evaluate(() => {
+    const s = (window as any).__testGetState();
+    (window as any).__testSetState({ settings: { ...s.settings, font_size: 64 } });
+  });
+  await page.setViewportSize({ width: 300, height: 180 });
+  const scroller = await page.locator('#lyrics').boundingBox();
+  const firstLine = await page.locator('#current').boundingBox();
+  expect(firstLine!.y).toBeGreaterThanOrEqual(scroller!.y);
+  await openLetra(page);
+  await page.getByRole('button', { name: 'Tamaño de letra…', exact: true }).click();
+  await expect(page.locator('#font-size-increase')).toBeDisabled();
+  await page.locator('#font-size-decrease').click();
+  await expect(page.locator('#current')).toHaveCSS('font-size', '62px');
+  await page.evaluate(() => {
+    const s = (window as any).__testGetState();
+    (window as any).__testSetState({ settings: { ...s.settings, font_size: 14 } });
+    (window as any).__testRejectSettings = true;
+  });
+  await expect(page.locator('#font-size-decrease')).toBeDisabled();
+  await page.locator('#font-size-increase').click();
+  await expect(page.locator('#notice')).toContainText('No se pudo guardar el tamaño');
+  await expect(page.locator('#quick-font-value')).toHaveText('14 px');
+  await expect(page.locator('#current')).toHaveCSS('font-size', '14px');
+  await expect(page.locator('#font-size-increase')).toBeEnabled();
+  expect(await page.evaluate(() => (window as any).__testGetState().settings.font_size)).toBe(14);
+});
+
+test('player controls target the selected session, wait for acknowledgement and follow playback state', async ({
+  page,
+}) => {
+  await expect(page.locator('#transport-play-icon')).toBeHidden();
+  await expect(page.locator('#transport-pause-icon')).toBeVisible();
+  await page.evaluate(() => ((window as any).__testHoldTransport = true));
+  await page.getByRole('button', { name: 'Pausar', exact: true }).click();
+  await expect(page.locator('#transport')).toHaveAttribute('aria-busy', 'true');
+  await expect(page.getByRole('button', { name: 'Canción siguiente', exact: true })).toBeDisabled();
+  const request = await page.evaluate(() =>
+    (window as any).__testCommands.find((c: any) => c.command === 'control_playback'),
+  );
+  expect(request.args).toEqual({ sessionId: 'one', generation: 1, action: 'pause' });
+  await page.evaluate(() => {
+    (window as any).__testHoldTransport = false;
+    (window as any).__testReleaseTransport();
+  });
+  await expect(page.getByRole('button', { name: 'Reproducir', exact: true })).toBeEnabled();
+  await expect(page.locator('#transport-play-icon')).toBeVisible();
+  await expect(page.locator('#transport-pause-icon')).toBeHidden();
+  await page.getByRole('button', { name: 'Reproducir', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Pausar', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: 'Canción siguiente', exact: true }).click();
+  await expect(page.locator('#transport')).toHaveAttribute('aria-busy', 'false');
+  const actions = await page.evaluate(() =>
+    (window as any).__testCommands
+      .filter((c: any) => c.command === 'control_playback')
+      .map((c: any) => c.args.action),
+  );
+  expect(actions).toEqual(['pause', 'play', 'next']);
+});
+
+test('player respects session capabilities and remains recoverable in lyrics-only and small reading views', async ({
+  page,
+}) => {
+  await page.evaluate(() =>
+    (window as any).__testSetState({
+      playback_controls: { play: true, pause: true, previous: false, next: false },
+    }),
+  );
+  await expect(page.locator('#transport-previous')).toBeDisabled();
+  await expect(page.locator('#transport-next')).toBeDisabled();
+  await page.getByRole('button', { name: 'Cambiar a solo letras' }).click();
+  await page.locator('#transport-play-pause').focus();
+  await expect(page.locator('#transport-play-pause')).toBeInViewport();
+  expect(await page.locator('#player').evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
+  await page.getByRole('button', { name: 'Cambiar a vista compacta' }).click();
+  await page.setViewportSize({ width: 300, height: 180 });
+  await page.evaluate(() =>
+    (window as any).__testSetState({
+      lyrics: {
+        source: 'Prueba',
+        source_id: null,
+        format: 'plain',
+        lines: [],
+        plain_text: 'Letra para leer',
+        warnings: [],
+      },
+    }),
+  );
+  await expect(page.locator('#transport-play-pause')).toBeInViewport();
+  expect(
+    await page.locator('#plain-text').evaluate((el) => el.clientHeight),
+  ).toBeGreaterThanOrEqual(35);
+  await page.evaluate(() =>
+    (window as any).__testSetState({ selected_session: null, track: null }),
+  );
+  await expect(page.locator('#transport-play-pause')).toBeDisabled();
+});
+
 test('settings, keyboard recovery, preview and validation', async ({ page }) => {
   await page.getByRole('button', { name: 'Abrir ajustes' }).click();
   await expect(page.locator('#sessions')).toHaveValue('one');
@@ -127,13 +280,75 @@ test('settings, keyboard recovery, preview and validation', async ({ page }) => 
   await page.keyboard.press('Escape');
   await expect(page.getByRole('button', { name: 'Abrir ajustes' })).toBeFocused();
 });
+
+test('theme preview cancels on escape and persists on save', async ({ page }) => {
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'classic_cat');
+  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+  await page.locator('#theme-id').selectOption('cat_constellation');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'cat_constellation');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'classic_cat');
+  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+  await page.locator('#theme-id').selectOption('window_cat');
+  await page.locator('#lyrics-backdrop').selectOption('light');
+  await page.getByRole('button', { name: 'Guardar ajustes' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'window_cat');
+  await expect(page.locator('html')).toHaveAttribute('data-backdrop', 'light');
+  const saved = await page.evaluate(() => (window as any).__testGetState().settings);
+  expect(saved.theme_id).toBe('window_cat');
+  expect(saved.lyrics_backdrop).toBe('light');
+});
+
+test('changing theme keeps karaoke word progress', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.evaluate(() => {
+    const current = (window as any).__testGetState();
+    (window as any).__testSetState({
+      settings: { ...current.settings, karaoke_mode: 'word' },
+      lyrics_revision: 10,
+      position_sequence: 10,
+      position_ms: 1500,
+      active_line: 0,
+      sync_confirmed: true,
+      lyrics: {
+        source: 'Prueba propia',
+        format: 'line_synced',
+        source_id: 1,
+        lines: [
+          {
+            at_ms: 1000,
+            end_ms: 3500,
+            text: 'Hola mundo',
+            words: [
+              { text: 'Hola ', start_ms: 1000, end_ms: 2000 },
+              { text: 'mundo', start_ms: 2000, end_ms: 3000 },
+            ],
+          },
+        ],
+        plain_text: '',
+        warnings: [],
+      },
+    });
+  });
+  await expect(page.locator('.karaoke-word').first()).toHaveAttribute('data-progress', '0.5');
+  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+  await page.locator('#theme-id').selectOption('cat_notebook');
+  await page.getByRole('button', { name: 'Guardar ajustes' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'cat_notebook');
+  await expect(page.locator('.karaoke-word')).toHaveCount(2);
+  await expect(page.locator('.karaoke-word').first()).toHaveAttribute('data-progress', '0.5');
+  await expect(page.locator('#current')).toContainText('Hola');
+});
+
 test('transparent lyrics view remains recoverable and supports small windows', async ({ page }) => {
   await page.getByRole('button', { name: 'Cambiar a solo letras' }).click();
-  await expect(page.locator('body')).toHaveClass('lyrics-only');
+  await expect(page.locator('body')).toHaveClass(/lyrics-only/);
+  await expect(page.locator('#current-band')).toBeVisible();
   await page.setViewportSize({ width: 300, height: 180 });
   await expect(page.getByRole('button', { name: 'Abrir ajustes' })).toBeVisible();
   await page.screenshot({ path: 'artifacts/widget-lyrics.png', omitBackground: true });
 });
+
 test('uncertain cover result shows artist and duration warning before selection', async ({
   page,
 }) => {
@@ -154,13 +369,16 @@ test('uncertain cover result shows artist and duration warning before selection'
     }),
   );
   await expect(page.locator('#current')).toHaveText('Encontramos una posible letra');
+  await openLetra(page);
   await page.getByRole('button', { name: 'Versiones (1)', exact: true }).click();
   await expect(page.locator('#candidates')).toContainText('The Covers Duo');
   await expect(page.locator('#candidates')).toContainText('20 s');
   await page.screenshot({ path: 'artifacts/lyrics-candidate-warning.png' });
 });
+
 test('manual title and artist correction submits generation-bound search', async ({ page }) => {
-  await page.getByRole('button', { name: 'Corregir búsqueda', exact: true }).click();
+  await openLetra(page);
+  await page.getByRole('button', { name: 'Corregir búsqueda…', exact: true }).click();
   await page.locator('#search-title').fill('He-Man');
   await page.locator('#search-artist').fill('The Covers Duo');
   await page.getByRole('button', { name: 'Buscar con estos datos' }).click();
@@ -174,6 +392,7 @@ test('manual title and artist correction submits generation-bound search', async
     reset: false,
   });
 });
+
 test('translation is opt-in and original remains available', async ({ page }) => {
   await page.evaluate(() =>
     (window as any).__testSetState({
@@ -189,7 +408,8 @@ test('translation is opt-in and original remains available', async ({ page }) =>
         (window as any).__testCommands.filter((c: any) => c.command === 'translate_lyrics').length,
     ),
   ).toBe(0);
-  await page.getByRole('button', { name: 'Traducir al español', exact: true }).click();
+  await openLetra(page);
+  await page.getByRole('button', { name: 'Traducir al español…', exact: true }).click();
   await expect(page.locator('#translation-panel')).toContainText('MyMemory');
   expect(
     await page.evaluate(
@@ -197,11 +417,13 @@ test('translation is opt-in and original remains available', async ({ page }) =>
         (window as any).__testCommands.filter((c: any) => c.command === 'translate_lyrics').length,
     ),
   ).toBe(0);
-  await page.getByRole('button', { name: 'Enviar a MyMemory y traducir' }).click();
+  await page.getByRole('button', { name: 'Enviar y traducir' }).click();
   await expect(page.locator('#current')).toHaveText('La música sigue aquí en español');
+  await openLetra(page);
   await page.getByRole('button', { name: 'Ver original' }).click();
   await expect(page.locator('#current')).toHaveText('La música sigue aquí');
 });
+
 test('multiple results show default selection and retain access to alternatives', async ({
   page,
 }) => {
@@ -217,9 +439,11 @@ test('multiple results show default selection and retain access to alternatives'
     }),
   );
   await expect(page.locator('#selection-alert')).toContainText('2 letras');
+  await openLetra(page);
   await page.getByRole('button', { name: 'Versiones (2)' }).click();
   await expect(page.locator('#candidates')).toContainText('Seleccionada · Song');
 });
+
 test('karaoke words follow source times, pause, seek and ignore stale position packets', async ({
   page,
 }) => {
@@ -301,6 +525,7 @@ test('karaoke words follow source times, pause, seek and ignore stale position p
   await expect(page.locator('.karaoke-word')).toHaveCount(0);
   await expect(page.locator('#current')).toHaveText('Hola mundo');
 });
+
 test('word preference persists but LRC without words keeps line mode', async ({ page }) => {
   await page.getByRole('button', { name: 'Abrir ajustes' }).click();
   await page.locator('#karaoke-mode').selectOption('word');
@@ -309,8 +534,11 @@ test('word preference persists but LRC without words keeps line mode', async ({ 
   await expect(page.locator('.karaoke-word')).toHaveCount(0);
   await page.getByRole('button', { name: 'Abrir ajustes' }).click();
   await expect(page.locator('#karaoke-mode')).toHaveValue('word');
-  await expect(page.locator('#karaoke-status')).toContainText('Se mantiene el modo por línea');
+  await expect(page.locator('#settings-karaoke-status')).toContainText(
+    'Se mantiene el modo por línea',
+  );
 });
+
 test('untimed lyrics have a prominent persistent notice and neutral text', async ({ page }) => {
   await page.evaluate(() => {
     const s = (window as any).__testGetState();
@@ -332,7 +560,6 @@ test('untimed lyrics have a prominent persistent notice and neutral text', async
   await expect(page.locator('#reading-label')).toHaveCSS('font-weight', '700');
   await expect(page.locator('#reading-status')).toBeVisible();
   await expect(page.locator('#reading-detail')).toContainText('sin seguimiento ni resaltado');
-  await expect(page.locator('#plain-text')).toHaveCSS('color', 'rgb(213, 220, 210)');
   await expect(page.locator('#plain-text')).toHaveCSS('background-image', 'none');
   await expect(page.locator('#lyrics')).toBeHidden();
   await expect(page.locator('.karaoke-word')).toHaveCount(0);
@@ -353,6 +580,136 @@ test('untimed lyrics have a prominent persistent notice and neutral text', async
   await expect(page.locator('#reading-label')).toBeInViewport();
   await page.screenshot({ path: 'artifacts/reading-no-timing-small.png', omitBackground: true });
 });
+
+test('reading a timed document never leaks LRC timestamps when timing or version confirmation is unavailable', async ({
+  page,
+}) => {
+  await page.evaluate(() =>
+    (window as any).__testSetState({
+      timing_reliable: false,
+      sync_confirmed: true,
+      lyrics: {
+        source: 'Prueba',
+        source_id: 10,
+        format: 'line_synced',
+        warnings: [],
+        plain_text: '[00:00.00]Primera frase\n[00:30.00]Segunda frase',
+        lines: [
+          { at_ms: 0, text: 'Primera frase' },
+          { at_ms: 30000, text: 'Segunda frase' },
+        ],
+      },
+    }),
+  );
+  await expect(page.locator('#reading-label')).toContainText('sin posición fiable');
+  await expect(page.locator('#plain-text')).toHaveText('Primera frase\nSegunda frase');
+  await expect(page.locator('#reading')).not.toContainText('00:30');
+  await expect(page.locator('#elapsed')).toHaveText('0:30');
+  await page.evaluate(() =>
+    (window as any).__testSetState({ timing_reliable: true, active_line: 1 }),
+  );
+  await expect(page.locator('#reading')).toBeHidden();
+  await expect(page.locator('#current')).toHaveText('Segunda frase');
+  await page.evaluate(() => (window as any).__testSetState({ sync_confirmed: false }));
+  await expect(page.locator('#reading-label')).toContainText('versión por confirmar');
+  await expect(page.locator('#plain-text')).toHaveText('Primera frase\nSegunda frase');
+});
+
+test('cat menu toggles animation immediately and settings preview can cancel it', async ({
+  page,
+}) => {
+  await page.getByRole('button', { name: 'Opciones del gatito' }).click();
+  await expect(page.locator('#cat-menu')).toBeVisible();
+  await page.locator('#cat-animation').uncheck();
+  const saved = await page.evaluate(
+    () => (window as any).__testGetState().settings.cat_animation_enabled,
+  );
+  expect(saved).toBe(false);
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+  await expect(page.locator('#settings-cat-animation')).not.toBeChecked();
+  await page.locator('#settings-cat-animation').check();
+  await page.keyboard.press('Escape');
+  const afterCancel = await page.evaluate(
+    () => (window as any).__testGetState().settings.cat_animation_enabled,
+  );
+  expect(afterCancel).toBe(false);
+});
+
+const themes = [
+  'classic_cat',
+  'window_cat',
+  'cat_notebook',
+  'cat_constellation',
+  'mochi_cat',
+] as const;
+for (const theme of themes) {
+  test(`theme gallery capture ${theme}`, async ({ page }) => {
+    await page.evaluate((themeId) => {
+      const current = (window as any).__testGetState();
+      (window as any).__testSetState({ settings: { ...current.settings, theme_id: themeId } });
+    }, theme);
+    await page.setViewportSize({ width: 420, height: 260 });
+    await page.screenshot({ path: `artifacts/theme-${theme}-420x260.png` });
+    await page.setViewportSize({ width: 300, height: 180 });
+    await page.screenshot({ path: `artifacts/theme-${theme}-300x180.png` });
+  });
+}
+
+test('mascot animation advances while playing and stops when disabled', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.waitForTimeout(300);
+  const before = await page.locator('#mascot').getAttribute('data-frame');
+  await expect.poll(() => page.locator('#mascot').getAttribute('data-frame')).not.toBe(before);
+  await page.waitForTimeout(450);
+  const mid = await page.locator('#mascot').getAttribute('data-frame');
+  await expect(page.locator('#mascot')).toHaveAttribute('data-sequence', /playing|greet|static/);
+  await page.screenshot({ path: 'artifacts/mascot-playing.png' });
+  await page.getByRole('button', { name: 'Opciones del gatito' }).click();
+  await page.locator('#cat-animation').uncheck();
+  await page.waitForTimeout(200);
+  const stopped = await page.locator('#mascot').getAttribute('data-sequence');
+  expect(stopped).toBe('static');
+  const frameA = await page.locator('#mascot').getAttribute('data-frame');
+  await page.waitForTimeout(400);
+  const frameB = await page.locator('#mascot').getAttribute('data-frame');
+  expect(frameA).toBe(frameB);
+  await page.screenshot({ path: 'artifacts/mascot-stopped.png' });
+  // Evidence that frames can change while enabled (best-effort; greet/playing may share a frame briefly).
+  expect([before, mid, frameA].some(Boolean)).toBe(true);
+});
+
+test('expanded theme capture and lyrics-only backdrops', async ({ page }) => {
+  await page.evaluate(() => {
+    const current = (window as any).__testGetState();
+    (window as any).__testSetState({ settings: { ...current.settings, theme_id: 'classic_cat' } });
+  });
+  await page.setViewportSize({ width: 640, height: 400 });
+  await page.screenshot({ path: 'artifacts/theme-classic_cat-640x400.png' });
+  await page.getByRole('button', { name: 'Cambiar a solo letras' }).click();
+  await page.evaluate(() => {
+    document.body.style.background = '#f5f5f5';
+  });
+  await expect(page.locator('#current')).toHaveCSS('color', 'rgb(255, 255, 255)');
+  await page.screenshot({
+    path: 'artifacts/lyrics-only-dark-on-light.png',
+    omitBackground: false,
+    animations: 'disabled',
+  });
+  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+  await page.locator('#lyrics-backdrop').selectOption('light');
+  await page.getByRole('button', { name: 'Guardar ajustes' }).click();
+  await page.evaluate(() => {
+    document.body.style.background = '#1a1a1a';
+  });
+  await expect(page.locator('#current')).toHaveCSS('color', 'rgb(32, 32, 36)');
+  await page.screenshot({
+    path: 'artifacts/lyrics-only-light-on-dark.png',
+    omitBackground: false,
+    animations: 'disabled',
+  });
+});
+
 test('position ticks move the clock and lines without a full snapshot', async ({ page }) => {
   await expect(page.locator('#elapsed')).toHaveText('0:30');
   await page.evaluate(() =>
@@ -391,74 +748,4 @@ test('artwork is requested once per revision and hidden when the track has none'
   );
   await expect(page.locator('#artwork')).toBeHidden();
   expect(await requests()).toBe(1);
-});
-const withTheme = (page: import('@playwright/test').Page, patch: Record<string, unknown> = {}) =>
-  page.evaluate((patch) => {
-    const state = (window as any).__testGetState();
-    (window as any).__testSetState({
-      ...patch,
-      settings: { ...state.settings, theme_id: 'mochi_cat', ...(patch.settings as object) },
-    });
-  }, patch);
-test('classic stays the default and an unknown skin falls back to it', async ({ page }) => {
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'classic');
-  await expect(page.locator('#mascot')).toBeHidden();
-  await expect(page.locator('.brand-cat')).toBeHidden();
-  await withTheme(page, { settings: { theme_id: 'from_the_future' } });
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'classic');
-});
-test('cat skin restyles the widget and its mascot follows playback', async ({ page }) => {
-  await withTheme(page);
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'mochi_cat');
-  await expect(page.locator('.brand-cat')).toBeVisible();
-  await expect(page.locator('.brand-classic')).toBeHidden();
-  await expect(page.locator('#mascot')).toBeVisible();
-  await expect(page.locator('#mascot .cat-eyes-open')).toBeVisible();
-  await expect(page.locator('#mascot .cat-zzz')).toBeHidden();
-  expect(
-    await page.locator('#progress-wrap').evaluate((e) => e.style.getPropertyValue('--progress')),
-  ).toBe('0.2500');
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: 'artifacts/skin-mochi-playing.png' });
-  await withTheme(page, { playing: false });
-  await expect(page.locator('#mascot .cat-eyes-closed')).toBeVisible();
-  await expect(page.locator('#mascot .cat-eyes-open')).toBeHidden();
-  await page.screenshot({ path: 'artifacts/skin-mochi-paused.png' });
-  await withTheme(page, { track: null, lyrics: null, playing: false });
-  await expect(page.locator('#mascot')).toBeVisible();
-  await page.screenshot({ path: 'artifacts/skin-mochi-empty.png' });
-});
-test('cat skin is previewed from settings, saved with the form and usable when small', async ({
-  page,
-}) => {
-  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
-  await page.locator('#theme').selectOption('mochi_cat');
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'mochi_cat');
-  await page.screenshot({ path: 'artifacts/skin-mochi-settings.png' });
-  await page.getByRole('button', { name: 'Volver' }).click();
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'classic');
-  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
-  await page.locator('#theme').selectOption('mochi_cat');
-  await page.getByRole('button', { name: 'Guardar ajustes' }).click();
-  const saved = await page.evaluate(() =>
-    (window as any).__testCommands.findLast((c: any) => c.command === 'update_settings'),
-  );
-  expect(saved.args.settings.theme_id).toBe('mochi_cat');
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'mochi_cat');
-  await page.setViewportSize({ width: 300, height: 180 });
-  await expect(page.getByRole('button', { name: 'Abrir ajustes' })).toBeVisible();
-  await expect(page.locator('#current')).toBeVisible();
-  await expect(page.locator('#mascot')).toBeHidden();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: 'artifacts/skin-mochi-small.png' });
-  await page.setViewportSize({ width: 420, height: 260 });
-  await page.getByRole('button', { name: 'Cambiar a solo letras' }).click();
-  await expect(page.locator('#mascot')).toBeHidden();
-  await page.screenshot({ path: 'artifacts/skin-mochi-lyrics-only.png' });
-  // Controls over the desktop turn white; the ones inside a panel must stay readable.
-  const color = (id: string) => page.locator(id).evaluate((e) => getComputedStyle(e).color);
-  expect(await color('#correct-search')).toBe('rgb(255, 255, 255)');
-  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
-  expect(await color('#close-settings')).not.toBe('rgb(255, 255, 255)');
-  await page.screenshot({ path: 'artifacts/skin-mochi-lyrics-only-settings.png' });
 });

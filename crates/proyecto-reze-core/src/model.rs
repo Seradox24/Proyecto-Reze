@@ -15,6 +15,34 @@ pub struct Session {
     pub name: String,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum PlaybackAction {
+    Play,
+    Pause,
+    Previous,
+    Next,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PlaybackControls {
+    pub play: bool,
+    pub pause: bool,
+    pub previous: bool,
+    pub next: bool,
+}
+
+impl PlaybackControls {
+    pub fn supports(self, action: PlaybackAction) -> bool {
+        match action {
+            PlaybackAction::Play => self.play,
+            PlaybackAction::Pause => self.pause,
+            PlaybackAction::Previous => self.previous,
+            PlaybackAction::Next => self.next,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct Timeline {
     pub position_ms: u64,
@@ -29,6 +57,7 @@ pub struct Timeline {
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct MediaSample {
+    pub playback_controls: PlaybackControls,
     pub sessions: Vec<Session>,
     pub track: Option<Track>,
     pub timeline: Timeline,
@@ -114,6 +143,8 @@ pub struct PositionTick {
 /// lyrics of every alternative: the interface asks for the artwork when its revision changes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Snapshot {
+    #[serde(default)]
+    pub playback_controls: PlaybackControls,
     pub position_sequence: u64,
     pub search_override: Option<Track>,
     pub selected_candidate_id: Option<i64>,
