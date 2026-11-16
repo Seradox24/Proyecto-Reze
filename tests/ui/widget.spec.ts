@@ -392,3 +392,67 @@ test('artwork is requested once per revision and hidden when the track has none'
   await expect(page.locator('#artwork')).toBeHidden();
   expect(await requests()).toBe(1);
 });
+const withTheme = (page: import('@playwright/test').Page, patch: Record<string, unknown> = {}) =>
+  page.evaluate((patch) => {
+    const state = (window as any).__testGetState();
+    (window as any).__testSetState({
+      ...patch,
+      settings: { ...state.settings, theme_id: 'mochi_cat', ...(patch.settings as object) },
+    });
+  }, patch);
+test('classic stays the default and an unknown skin falls back to it', async ({ page }) => {
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'classic');
+  await expect(page.locator('#mascot')).toBeHidden();
+  await expect(page.locator('.brand-cat')).toBeHidden();
+  await withTheme(page, { settings: { theme_id: 'from_the_future' } });
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'classic');
+});
+test('cat skin restyles the widget and its mascot follows playback', async ({ page }) => {
+  await withTheme(page);
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'mochi_cat');
+  await expect(page.locator('.brand-cat')).toBeVisible();
+  await expect(page.locator('.brand-classic')).toBeHidden();
+  await expect(page.locator('#mascot')).toBeVisible();
+  await expect(page.locator('#mascot .cat-eyes-open')).toBeVisible();
+  await expect(page.locator('#mascot .cat-zzz')).toBeHidden();
+  expect(
+    await page.locator('#progress-wrap').evaluate((e) => e.style.getPropertyValue('--progress')),
+  ).toBe('0.2500');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: 'artifacts/skin-mochi-playing.png' });
+  await withTheme(page, { playing: false });
+  await expect(page.locator('#mascot .cat-eyes-closed')).toBeVisible();
+  await expect(page.locator('#mascot .cat-eyes-open')).toBeHidden();
+  await page.screenshot({ path: 'artifacts/skin-mochi-paused.png' });
+  await withTheme(page, { track: null, lyrics: null, playing: false });
+  await expect(page.locator('#mascot')).toBeVisible();
+  await page.screenshot({ path: 'artifacts/skin-mochi-empty.png' });
+});
+test('cat skin is previewed from settings, saved with the form and usable when small', async ({
+  page,
+}) => {
+  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+  await page.locator('#theme').selectOption('mochi_cat');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'mochi_cat');
+  await page.screenshot({ path: 'artifacts/skin-mochi-settings.png' });
+  await page.getByRole('button', { name: 'Volver' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'classic');
+  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+  await page.locator('#theme').selectOption('mochi_cat');
+  await page.getByRole('button', { name: 'Guardar ajustes' }).click();
+  const saved = await page.evaluate(() =>
+    (window as any).__testCommands.findLast((c: any) => c.command === 'update_settings'),
+  );
+  expect(saved.args.settings.theme_id).toBe('mochi_cat');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'mochi_cat');
+  await page.setViewportSize({ width: 300, height: 180 });
+  await expect(page.getByRole('button', { name: 'Abrir ajustes' })).toBeVisible();
+  await expect(page.locator('#current')).toBeVisible();
+  await expect(page.locator('#mascot')).toBeHidden();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: 'artifacts/skin-mochi-small.png' });
+  await page.setViewportSize({ width: 420, height: 260 });
+  await page.getByRole('button', { name: 'Cambiar a solo letras' }).click();
+  await expect(page.locator('#mascot')).toBeHidden();
+  await page.screenshot({ path: 'artifacts/skin-mochi-lyrics-only.png' });
+});

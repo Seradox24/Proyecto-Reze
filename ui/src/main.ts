@@ -1,10 +1,12 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import type { Settings, Snapshot, PositionTick } from './types';
+import { THEMES } from './types';
+import type { Settings, Snapshot, PositionTick, ThemeId } from './types';
 import { lyricView, time, readingStatus } from './view';
 import { canHighlightWords, modeStatus, WordRenderer } from './karaoke';
 import './style.css';
+import './skins/mochi-cat.css';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const input = (id: string) => $<HTMLInputElement>(id);
@@ -43,6 +45,12 @@ async function action(name: string, args?: Record<string, unknown>) {
   }
 }
 function applyAppearance(settings: Settings) {
+  // Normalised against the known list: an unknown skin never leaves the page unstyled.
+  const theme = THEMES.find((id) => id === settings.theme_id) ?? 'classic';
+  document.documentElement.dataset.theme = theme;
+  document
+    .querySelector('meta[name="color-scheme"]')
+    ?.setAttribute('content', theme === 'mochi_cat' ? 'light' : 'dark');
   document.documentElement.style.setProperty('--lyric-size', `${settings.font_size}px`);
   document.documentElement.style.setProperty('--opacity', String(settings.opacity));
   document.documentElement.style.setProperty('--alignment', settings.alignment);
@@ -106,6 +114,7 @@ function render(next: Snapshot) {
       ? 'Reproduciendo'
       : 'En pausa';
   $('playback').classList.toggle('playing', state.playing);
+  $('widget').classList.toggle('is-playing', state.playing);
   $('source-info').textContent = state.lyrics
     ? `Fuente: ${state.lyrics.source}${state.lyrics.source_id !== null ? ` · ID ${state.lyrics.source_id}` : ''}. Derechos de exhibición según la fuente o el archivo aportado.`
     : 'Sin fuente de letras seleccionada.';
@@ -219,6 +228,9 @@ function renderProgress() {
   progress.max = state.track?.duration_ms || 1;
   progress.value = state.position_ms;
   $('progress-wrap').hidden = !state.track?.duration_ms;
+  // Lets a skin place its mascot at the playback position.
+  const fraction = state.track?.duration_ms ? state.position_ms / state.track.duration_ms : 0;
+  $('progress-wrap').style.setProperty('--progress', Math.min(1, Math.max(0, fraction)).toFixed(4));
 }
 function renderTimedLyrics(lyrics: Snapshot['lyrics']) {
   const view = lyricView({ ...state, lyrics });
@@ -267,6 +279,7 @@ function positionTick(tick: PositionTick) {
     playing: tick.playing,
     timing_reliable: tick.timing_reliable,
   };
+  $('widget').classList.toggle('is-playing', state.playing);
   renderTimedLyrics(translated && state.translation ? state.translation : state.lyrics);
   renderProgress();
 }
@@ -280,6 +293,7 @@ function populateSettings() {
   input('font-size').value = String(s.font_size);
   input('opacity').value = String(s.opacity);
   select('alignment').value = s.alignment;
+  select('theme').value = s.theme_id ?? 'classic';
   input('reduced-motion').checked = s.reduced_motion;
   input('network-allowed').checked = s.network_allowed;
   $('form-error').hidden = true;
@@ -294,6 +308,7 @@ function settingsFromForm(): Settings {
     font_size: Number(input('font-size').value),
     opacity: Number(input('opacity').value),
     alignment: select('alignment').value as Settings['alignment'],
+    theme_id: select('theme').value as ThemeId,
     reduced_motion: input('reduced-motion').checked,
     network_allowed: input('network-allowed').checked,
   };

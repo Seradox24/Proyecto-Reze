@@ -10,9 +10,19 @@
     <main id="widget">
       <header id="titlebar">
         <div id="drag-handle" title="Arrastrar ventana">
-          <svg aria-hidden="true" viewBox="0 0 24 24">
-            <path d="M7 19V5h5a4 4 0 0 1 0 8H7m5 0 5 6" /></svg
-          ><span>Proyecto Reze</span>
+          <svg class="brand-classic" aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M7 19V5h5a4 4 0 0 1 0 8H7m5 0 5 6" />
+          </svg>
+          <svg class="brand-cat" aria-hidden="true" viewBox="0 0 24 24">
+            <path
+              class="cat-face"
+              d="M4.2 10.5 3.4 3.6l5.3 3a9.6 9.6 0 0 1 6.6 0l5.3-3-.8 6.9a8.6 7.6 0 1 1-15.6 0Z"
+            />
+            <circle class="cat-eye" cx="8.8" cy="13" r="1.25" />
+            <circle class="cat-eye" cx="15.2" cy="13" r="1.25" />
+            <path class="cat-smile" d="M10.4 16.1q1.6 1.5 1.6 0 0 1.5 1.6 0" />
+          </svg>
+          <span>Proyecto Reze</span>
         </div>
         <div class="window-actions">
           <button id="view-toggle" aria-label="Cambiar a solo letras" title="Cambiar vista">
@@ -53,6 +63,31 @@
         <p id="plain-text" tabindex="0" aria-label="Texto de la letra sin seguimiento"></p>
       </section>
       <div id="progress-wrap">
+        <!-- Only drawn by skins that have a mascot; purely decorative. -->
+        <div id="mascot" aria-hidden="true">
+          <svg viewBox="0 0 44 34">
+            <path class="cat-tail" d="M13 28c-7 1.5-10.5-3-8.5-9" />
+            <ellipse class="cat-body" cx="22" cy="24.5" rx="11" ry="8" />
+            <path class="cat-ear" d="M13 13 11.5 3.5l8 5Z" />
+            <path class="cat-ear" d="M31 13l1.5-9.5-8 5Z" />
+            <path class="cat-ear-inner" d="M14.3 10.5 13.5 6l3.8 2.4Z" />
+            <path class="cat-ear-inner" d="M29.7 10.5 30.5 6l-3.8 2.4Z" />
+            <ellipse class="cat-head" cx="22" cy="15.5" rx="11" ry="8.5" />
+            <g class="cat-eyes-open">
+              <circle cx="17.5" cy="15.5" r="1.5" />
+              <circle cx="26.5" cy="15.5" r="1.5" />
+            </g>
+            <g class="cat-eyes-closed">
+              <path d="M15.7 15.6q1.8 1.7 3.6 0" />
+              <path d="M24.7 15.6q1.8 1.7 3.6 0" />
+            </g>
+            <path class="cat-mouth" d="M20.4 18.6q1.6 1.5 1.6 0 0 1.5 1.6 0" />
+            <ellipse class="cat-blush" cx="14.6" cy="18.6" rx="2" ry="1.2" />
+            <ellipse class="cat-blush" cx="29.4" cy="18.6" rx="2" ry="1.2" />
+            <path class="cat-paws" d="M17 31.3h3.2M23.8 31.3H27" />
+          </svg>
+          <span class="cat-zzz">z</span>
+        </div>
         <progress id="progress" max="1" value="0" aria-label="Progreso de reproducción"></progress>
       </div>
       <footer id="toolbar">
@@ -138,6 +173,13 @@
               </select></label
             >
           </div>
+          <label
+            >Tema<select id="theme">
+              <option value="classic">Clásico</option>
+              <option value="mochi_cat">Gatito mochi</option>
+            </select></label
+          >
+          <p class="help">Cambia todo el aspecto del widget. Se guarda con los demás ajustes.</p>
           <label
             >Opacidad<input id="opacity" type="range" min="0.2" max="1" step="0.05" value="1"
           /></label>

@@ -33,6 +33,11 @@ de respaldo como referencia del código previo; no sobrescribirla ni moverla.
 Las imágenes generadas ilustran el objetivo; reconstruir la interfaz y producir
 los sprites finales siguiendo las reglas, estados y criterios de aceptación del MD.
 
+> Nota posterior: ya existe el sistema de temas (`theme_id`, roles de color y
+> `ui/src/skins/`) con un primer skin propio, **Gatito mochi** (`mochi_cat`). Los
+> cuatro temas de la especificación siguen sin implementar y pueden añadirse como
+> skins nuevos sobre esa base. Consultar `DESIGN.md`.
+
 ## Estado funcional
 
 - Rust + Tauri 2 y una interfaz Vite + TypeScript, sin framework.

@@ -44,6 +44,8 @@ sí solo no inicia Vite: para desarrollo usa `npm run desktop`.
    Ese flujo tampoco necesita Internet, correo ni una cuenta musical.
 4. Ajusta el desfase si hace falta: valores positivos adelantan la letra.
 5. Alterna vista compacta/solo letras y nivel encima/normal/debajo en ajustes.
+6. En **Ajustes → Tema** puedes cambiar el aspecto completo: **Clásico** o
+   **Gatito mochi**, un tema claro con un gatito que acompaña la canción.
 
 Cerrar u ocultar conserva el proceso si existe bandeja. Usa su menú para mostrar,
 recuperar la posición, abrir ajustes o salir. Si falla la bandeja, cerrar termina
